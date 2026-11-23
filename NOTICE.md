@@ -69,6 +69,15 @@ Changes in this fork, all of them either translation or bug fixes:
   request count in the citation map, a silently dropped `identifier`, and an
   undocumented 40-paper display cap. See CHANGELOG 0.6.2 for the measurements.
 
+- **`OPENALEX_API_KEY` support (0.6.3).** OpenAlex backs five of the six tools and
+  six search sources, and its key was never supported — `openAlexUrl()` only
+  appended `mailto`. The key is now sent on every OpenAlex request, read from
+  plugin config, the environment, or the upstream `.env`. Also fixed: the 429
+  advice named `mailto` (which the current OpenAlex docs do not mention) instead
+  of the key, a 401 from a wrong key passed through untranslated, `paper_status`
+  did not list the key, and the shared options object would have leaked an
+  OpenAlex key to Semantic Scholar as `x-api-key`.
+
 ## What this package is
 
 `dsh-paper-search` is an **independent implementation** for DeepSeek Harness. It

@@ -7,6 +7,60 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.3] - 2026-11-23
+
+### Added — `OPENALEX_API_KEY`
+
+OpenAlex is the backend for five of the six tools and six of the search sources,
+and its limits were the ones actually being felt. The key was never supported:
+`openAlexUrl()` only ever appended `mailto`, so setting `OPENALEX_API_KEY` did
+nothing at all.
+
+It is now sent as the `api_key` query parameter on **every** OpenAlex request —
+`paper_search` (including the `openalex`, `ssrn`, `ieee`, `biorxiv`, `medrxiv`
+and `chemrxiv` sources), `paper_detail`, `paper_citations` (both directions and
+the structure map), `paper_oa`, and `paper_fulltext`'s work lookup. Verified with
+a request-capturing mock: 5/5 paths carry the key.
+
+What a free key buys, per OpenAlex's own docs:
+
+| | no key | free key |
+|---|---|---|
+| Daily budget | shared by everyone on your IP | **10×**, yours alone |
+| Requests/second | 10 | **30** |
+| Cursor paging | first page only | full |
+
+Read through the same credential reader as everything else, so all four sources
+work — verified individually: plugin config, `OPENALEX_API_KEY` in the
+environment, `PAPER_SEARCH_MCP_OPENALEX_API_KEY`, and
+`~/.config/paper-search-mcp/.env`.
+
+### Fixed — the 429 advice was wrong
+
+The error said *"Setting OPENALEX_EMAIL or UNPAYWALL_EMAIL raises the polite pool
+limit."* The current OpenAlex authentication docs do not mention `mailto` at all,
+and the 429 body names the missing **key** as the reason. The message now depends
+on whether a key is already in use — telling someone who has a key to "set a key"
+is useless, and telling someone without one to "wait 10 seconds" hides the fix.
+
+### Fixed — a wrong key looked like a transient failure
+
+HTTP 401 from OpenAlex was passed through untranslated. It now says the key was
+rejected and that a key only works after its email address is verified.
+
+### Fixed — `paper_status` did not report the key
+
+`OPENALEX_API_KEY` was missing from the credential list, so the one tool you would
+check could not tell you the key was absent. It is listed now, with an explicit
+note when it is empty.
+
+### Fixed — a latent credential leak between two providers
+
+The shared search options object used `apiKey` for Semantic Scholar. Adding
+OpenAlex's key under the same name would have sent an **OpenAlex key to Semantic
+Scholar** as `x-api-key`. The Semantic Scholar field is now `semanticApiKey`, and
+a test confirms each provider receives only its own credential.
+
 ## [0.6.2] - 2026-11-23
 
 A security and correctness audit of the whole codebase. Every item below was

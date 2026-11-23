@@ -424,11 +424,52 @@ No key is bundled. Read order:
 
 | Name | Purpose |
 |---|---|
-| `UNPAYWALL_EMAIL` | any email — used as the Crossref/OpenAlex "polite pool" contact |
+| `OPENALEX_API_KEY` | **the one that matters most.** Free key: 10× daily budget, 30 req/s instead of 10, and required for cursor paging. Without it OpenAlex shares one budget across everyone on your IP address |
+| `UNPAYWALL_EMAIL` | any email — the Crossref/OpenAlex `mailto` contact |
 | `OPENALEX_EMAIL` | same, OpenAlex only |
 | `SEMANTIC_SCHOLAR_API_KEY` | raises Semantic Scholar rate limits |
 | `DOAJ_API_KEY` | raises DOAJ's hourly limit |
 | `CORE_API_KEY` | **required for the `core` source** — without it CORE answers HTTP 429 with an empty body |
+
+### Why `OPENALEX_API_KEY` is worth setting
+
+OpenAlex is the backend for **five** of the six tools — `paper_detail`,
+`paper_citations`, `paper_oa`, `paper_fulltext`'s work lookup, and the `openalex`
+/ `ssrn` / `ieee` / `biorxiv` / `medrxiv` / `chemrxiv` search sources. Its limits
+are the ones you actually feel:
+
+| | no key | free key |
+|---|---|---|
+| Daily budget | shared by everyone on your IP | **10×**, yours alone |
+| Requests/second | 10 | **30** |
+| Cursor paging | first page only | full |
+
+Measured 2026-11-23: without a key this machine hit `HTTP 429` and then
+`ECONNRESET` partway through a test run, and the 429 body named the reason
+exactly — *"this request has no API key, so it counts against the free daily
+budget shared by everyone on your network's IP address"*.
+
+Get one free at <https://openalex.org/settings/api-key> (sign-up takes about 30
+seconds; the key only works after its email is verified). Then either:
+
+```sh
+export OPENALEX_API_KEY=your_key
+```
+
+or put it in `~/.config/paper-search-mcp/.env`:
+
+```
+OPENALEX_API_KEY=your_key
+```
+
+`paper_status` reports whether the key is readable and from where, and says so
+explicitly when it is missing.
+
+> **`mailto` is not the lever any more.** Older versions of this file (and the
+> 429 message) claimed that setting `OPENALEX_EMAIL` raises the "polite pool"
+> limit. The current OpenAlex authentication docs do not mention `mailto` at all;
+> the key is what raises the budget. `mailto` is still sent because it costs
+> nothing, but it is not a substitute for a key.
 
 Twenty-one of the twenty-three sources work with no credential at all; keys raise rate
 limits and stability. **Two are exceptions, and each is reported as a clear,

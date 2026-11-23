@@ -329,11 +329,18 @@ No key is bundled with this package. Read order:
 
 | Name | Purpose |
 |---|---|
-| `UNPAYWALL_EMAIL` | any email — used as the Crossref/OpenAlex "polite pool" |
+| `OPENALEX_API_KEY` | **the one that matters most.** Free key: 10× daily budget, 30 req/s instead of 10, required for cursor paging. Without it OpenAlex shares one budget across everyone on your IP |
+| `UNPAYWALL_EMAIL` | any email — the Crossref/OpenAlex `mailto` contact |
 | `OPENALEX_EMAIL` | same, OpenAlex only |
 | `SEMANTIC_SCHOLAR_API_KEY` | raises the Semantic Scholar rate limit |
 | `DOAJ_API_KEY` | raises the DOAJ hourly limit |
 | `CORE_API_KEY` | **required for the `core` source** — without a key it answers 429 with no message |
+
+> **Set `OPENALEX_API_KEY` if you use this plugin at all.** OpenAlex backs
+> `paper_detail`, `paper_citations`, `paper_oa`, `paper_fulltext`'s work lookup,
+> and six of the search sources. Free at <https://openalex.org/settings/api-key>.
+> `mailto` is NOT a substitute — the current OpenAlex docs do not mention it, and
+> the 429 body names the missing key as the reason.
 
 **Do not** fill in an IEEE key — upstream its connector is still a skeleton and
 `search()` always throws `NotImplementedError`, so the key would never be useful.
