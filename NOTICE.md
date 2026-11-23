@@ -1,5 +1,47 @@
 # NOTICE
 
+## This is a fork
+
+This repository is a fork of `dsh-paper-search` 0.4.1 by **Rasyid**
+([`rasyidmmz`](https://github.com/rasyidmmz)), MIT licensed. The upstream
+repository declared in the published `package.json`
+(`github.com/rasyidmmz/dsh-paper-search`) returns HTTP 404, so the fork was
+seeded from the npm tarball
+(`dsh-paper-search-0.4.1.tgz`, sha1 `308c878ed54323c3f7d8eff7e2ef5a139b483ede`)
+and that snapshot is the authoritative baseline.
+
+Changes in this fork, all of them either translation or bug fixes:
+
+- **Translated to English.** Every comment, identifier, and user-facing string
+  was Indonesian; it is now English. Model-facing tool parameters were renamed
+  too (`paksa_ulang` → `force_refresh`, `urutkan` → `sort`, `min_sitasi` →
+  `min_citations`, `jenis` → `kind`, `arah` → `direction`, `analisis` →
+  `analysis`, `bersihkan_cache` → `clear_cache`, `ambang_kuat` →
+  `strong_threshold`, `min_bersama_kuat` → `min_shared_strong`, `max_kandidat` →
+  `max_candidates`). The Indonesian values are **not** accepted as aliases.
+- **`paper_status` no longer probes by default.** Probing every source measured
+  122 seconds, long enough to hit a tool timeout; it is now opt-in via
+  `probe: true`.
+- **`collapseTitle` clamps its input.** The period search is O(n²) and ran
+  before the 300-character truncation, so an oversized `title` field from a
+  source stalled the whole search (100,000 characters took 12.9 s).
+- **`dedup` no longer collapses untitled records.** Records with no DOI and no
+  title all hashed to the same key, so three distinct untitled records became
+  one survivor and the other URLs were lost.
+- **`arxivMatch` strips query syntax from the title.** A title containing a
+  double quote closed the `ti:"…"` phrase and injected arXiv query operators,
+  which could return a different paper as "the arXiv version of this one".
+- **`kind` filtering compares canonical kinds.** Substring matching kept
+  `review-article` when `article` was requested, and dropped `posted-content`
+  when `preprint` was requested — the latter emptied the Crossref source.
+- **`worksCiting` reports `checked` honestly.** It returned the platform total
+  instead of the number of records actually examined.
+- **`isCacheable` matches `REQUIRED`.** The regex still tested the Indonesian
+  word `WAJIB` after the registry was translated, which would have made keyed
+  sources cacheable.
+- **Stale guard message fixed.** The source-count guard said "not 19" while the
+  registry has 23 sources.
+
 ## What this package is
 
 `dsh-paper-search` is an **independent implementation** for DeepSeek Harness. It

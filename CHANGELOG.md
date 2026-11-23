@@ -1,829 +1,950 @@
 # Changelog
 
+> **Fork note (fork-specific).** This fork translates the codebase — identifiers,
+> tool parameters, and docs — from Indonesian to English, and carries the behavior
+> fixes listed under 0.5.0. Entries below 0.5.0 are the upstream author's, carried
+> over unchanged apart from the translation; their versions, dates, source ids,
+> tool names, and measurements are untouched.
+
+## [0.5.0] - 2026-11-23
+
+**English fork.** Seeded from the published 0.4.1 tarball because the upstream
+repository returns 404. Every comment, identifier, and user-facing string was
+translated from Indonesian to English; the model-facing tool parameters were
+renamed as well. The Indonesian parameter names are **not** accepted as aliases.
+
+### Changed — model-facing tool parameters (breaking)
+
+| 0.4.1 | 0.5.0 |
+|---|---|
+| `paksa_ulang` | `force_refresh` |
+| `urutkan` | `sort` |
+| `min_sitasi` | `min_citations` |
+| `jenis` | `kind` |
+| `bersihkan_cache` | `clear_cache` |
+| `arah` | `direction` |
+| `analisis` | `analysis` |
+| `ambang_kuat` | `strong_threshold` |
+| `min_bersama_kuat` | `min_shared_strong` |
+| `max_kandidat` | `max_candidates` |
+
+Parameter *values* changed too: `arah` `pengutip`/`rujukan` → `direction`
+`citing`/`references`; `urutkan` `sitasi`/`terbaru`/`relevansi` → `sort`
+`citations`/`newest`/`relevance`; `analisis` `daftar`/`peta` → `analysis`
+`list`/`map`. Plugin config keys: `folderTeksLengkap` → `libraryRoot`
+(`FOLDER_TEKS_LENGKAP` still honored), `berkasCache` → `cacheFile`
+(`berkasCache` still honored). The cache file is now `cache-search.json`.
+
+### Fixed — `paper_status` probed every source by default
+
+Measured on this machine: a default `paper_status()` call took **122,420 ms**,
+because `probe` defaulted to `true` and walked all 23 sources — arXiv is
+self-throttled to 1 request / 3 seconds and the three HTML portals are slow.
+That is long enough to hit a tool timeout, and the model reaches for this tool
+exactly when it wants a fast answer. Probing is now **opt-in** (`probe: true`)
+and the default call returns in **1 ms**.
+
+### Fixed — `collapseTitle` was O(n²) with unbounded input
+
+The period search scans `n/2` candidate periods against `n` characters, and it
+ran **before** the 300-character truncation in `makePaper`. Measured: 5,000
+chars 32 ms, 20,000 chars 433 ms, 50,000 chars 2,753 ms, 100,000 chars
+**12,964 ms**. A source returning an oversized `title` field (a full abstract,
+a concatenated record) stalled the whole search. The input is now clamped to
+2,000 characters first; the same 100,000-character input takes **0 ms**, and
+the output for every realistic title is byte-identical.
+
+### Fixed — `dedup` collapsed every untitled record into one
+
+`titleKey(null)` is `''`, so records with no DOI and no title all hashed to
+`t:` and merged. Measured: three distinct untitled records from
+Zenodo/HAL/IOS became **one** survivor and the other two URLs were lost. The
+key now falls back to the URL, then to `source:index`, so each unidentifiable
+record stays its own entry. Real DOI and title deduplication is unchanged.
+
+### Fixed — `arxivMatch` allowed arXiv query injection
+
+The title was interpolated into `ti:"…"` unescaped. Measured: the title
+`Attention" OR all:"x` produced `search_query=ti:"Attention" OR all:"x"`,
+which searches something else entirely — and the wrong paper would then be
+reported as "the arXiv version of this one". Query syntax characters are now
+stripped (arXiv has no escape sequence for a quote inside a phrase).
+
+### Fixed — `kind` filtering compared substrings
+
+`kind: ["article"]` kept `review-article`, so asking for original research
+silently mixed reviews back in. The mirror-image bug was worse: `kind:
+["preprint"]` dropped `posted-content`, which is exactly what Crossref returns
+for a preprint, so the filter emptied that source. A `canonicalKind()` mapping
+now folds each platform's vocabulary (`journal-article`, `posted-content`,
+`proceedings-article`, `review-article`, …) onto the three kinds the tool
+offers, with `review` winning over `article`.
+
+### Fixed — `worksCiting` reported the platform total as `checked`
+
+It returned `checked: total`, so a 3-row page claimed it had examined all
+49,296 citing works. Any caller printing that would turn "most cited first"
+into a false statement. It now reports the number of records actually examined.
+
+### Fixed — `isCacheable` still matched the Indonesian word
+
+The regex tested `/WAJIB/i` against `source.credit`, but the registry was
+translated to `REQUIRED — answers 429 without a key` / `REQUIRED email`. After
+translation the regex matched nothing, which would have made CORE and Unpaywall
+cacheable — serving one user's keyed answer to the next caller. Now
+`/REQUIRED/i`; verified that exactly `core` and `unpaywall` are skipped.
+
+### Fixed — stale source-count guard
+
+The guard message said "not 19" while the registry has 23 sources. It now says
+23, and the referenced test path is `test/test-sources.mjs`.
+
+### Docs
+
+`README.md`, `NOTICE.md`, `CHANGELOG.md`, and `skills/paper-search/SKILL.md`
+translated. `NOTICE.md` gained a fork section listing every change above.
+`GLOSSARY.md` records the Indonesian→English mapping used, so the translation
+can be audited. Test-file references were renamed to English
+(`uji-sumber.mjs` → `test-sources.mjs`, and so on); the `test/` directory is
+not part of the npm tarball, so those suites are not in this repository.
+
 ## Compatibility
 
-| dsh-paper-search | DeepSeek Harness | Diuji pada |
+| dsh-paper-search | DeepSeek Harness | Tested on |
 |---|---|---|
-| 0.4.1 | 0.2.0-rc.2 | 2 Okt 2026, Windows, Node 24 |
-| 0.4.0 | 0.2.0-rc.2 | 2 Okt 2026, Windows, Node 24 |
-| 0.3.1 | 0.2.0-rc.2 | 2 Okt 2026, Windows, Node 24 |
-| 0.3.0 | 0.2.0-rc.2 | 1 Okt 2026, Windows, Node 24 |
-| 0.2.0 | 0.2.0-rc.2 | 1 Okt 2026, Windows, Node 24 |
-| 0.1.9 | 0.2.0-rc.2 | 1 Okt 2026, Windows, Node 24 |
+| 0.4.1 | 0.2.0-rc.2 | 2 Oct 2026, Windows, Node 24 |
+| 0.4.0 | 0.2.0-rc.2 | 2 Oct 2026, Windows, Node 24 |
+| 0.3.1 | 0.2.0-rc.2 | 2 Oct 2026, Windows, Node 24 |
+| 0.3.0 | 0.2.0-rc.2 | 1 Oct 2026, Windows, Node 24 |
+| 0.2.0 | 0.2.0-rc.2 | 1 Oct 2026, Windows, Node 24 |
+| 0.1.9 | 0.2.0-rc.2 | 1 Oct 2026, Windows, Node 24 |
 | 0.1.8 | 0.2.0-rc.1 | 29 Sep 2026, Windows, Node 24 |
 | 0.1.7 | 0.2.0-rc.1 | 29 Sep 2026, Windows, Node 24 |
 | 0.1.6 | 0.2.0-rc.1 | 29 Sep 2026, Windows, Node 24 |
 | 0.1.5 | 0.2.0-rc.1 | 29 Sep 2026, Windows, Node 24 |
 | 0.1.4 | 0.1.7-rc.2 | 28 Sep 2026, Windows, Node 24 |
-| ~~0.1.0~~ | — | **JANGAN DIPAKAI — plugin gagal dimuat, lihat 0.1.1** |
+| ~~0.1.0~~ | — | **DO NOT USE — the plugin fails to load, see 0.1.1** |
 
-Paket ini tidak memakai API internal DSH selain `ctx.tools.register` dan
-`ctx.get('skills').registerProvider` — keduanya sudah dipakai plugin lain yang
-berjalan di profil ini (`dsh-search-cascade`), jadi titik patahnya sama dan sudah
-diketahui.
+This package uses no DSH internal API beyond `ctx.tools.register` and
+`ctx.get('skills').registerProvider` — both are already used by another plugin
+running in this profile (`dsh-search-cascade`), so the breakage points are the
+same and already known.
 
 ## [0.4.1] - 2026-10-02
 
-### Fixed — penjagaan tautan unduhan PDF
+### Fixed — guarding PDF download links
 
-Ditemukan **sesudah membaca PR upstream #56** ("safety improvements", +3.963/−669,
-terbuka sejak 16 April 2026). Judul PR itu **menyesatkan**: mayoritas isinya
-infrastruktur transport HTTP, bukan keamanan. Yang benar-benar berharga ada di
-enam konektor: pemeriksaan host memakai **substring** (`if 'doi.org' in url`,
-`if 'web.archive.org' in resp.url`) diganti parsing hostname yang benar.
+Found **after reading upstream PR #56** ("safety improvements", +3,963/−669,
+open since 16 April 2026). That PR's title is **misleading**: most of its content
+is HTTP transport infrastructure, not safety. What is genuinely valuable sits in
+six connectors: host checks using **substring** matching (`if 'doi.org' in url`,
+`if 'web.archive.org' in resp.url`) replaced with proper hostname parsing.
 
-Itu kelas bug nyata — `https://jahat.example/?x=doi.org` lolos pemeriksaan
-substring. **Audit kode kita: pola itu tidak ada** (0 pemeriksaan host berbasis
-substring, 7 pemakaian `new URL()`).
+That is a real bug class — `https://jahat.example/?x=doi.org` passes a substring
+check. **Audit of our code: that pattern is absent** (0 substring-based host
+checks, 7 uses of `new URL()`).
 
-Tetapi audit yang sama menemukan celah **setara milik kita**: `unduhPdf()`
-mengikuti redirect **tanpa memeriksa apa pun**. URL unduhan datang dari API
-pihak ketiga (lokasi OA OpenAlex, Unpaywall, `openAccessPdf` Semantic Scholar,
-CORE), jadi isinya harus diperlakukan sebagai **data yang belum tepercaya**.
+But the same audit found an **equivalent gap of our own**: `downloadPdf()`
+follows redirects **without checking anything**. Download URLs come from
+third-party APIs (OpenAlex OA locations, Unpaywall, Semantic Scholar's
+`openAccessPdf`, CORE), so their content must be treated as **untrusted data**.
 
-Yang diperbaiki:
+What was fixed:
 
-- **`tautanAman(url)`** (baru, fungsi murni sehingga bisa diuji tanpa jaringan):
-  hanya `http`/`https`; menolak `localhost`, `*.local`, `*.internal`,
-  `*.home.arpa`, dan alamat IP privat/loopback/link-local termasuk
-  `169.254.169.254` (endpoint metadata cloud) serta IPv6 `::1`/`fc00::/7`/`fe80::`.
-- **Redirect diikuti satu per satu** (`redirect: 'manual'`) dengan penjaga yang
-  sama pada **setiap lompatan**. Sebelumnya `redirect: 'follow'` membuat hop
-  kedua dan seterusnya tidak pernah terlihat — jadi penjaga di tautan awal saja
-  bisa dilewati lewat satu redirect. `Location` relatif diselesaikan dengan
-  benar, dan lompatan dibatasi 5 supaya lingkaran redirect tidak menggantung.
+- **`isSafeUrl(url)`** (new, a pure function so it can be tested without the
+  network): only `http`/`https`; rejects `localhost`, `*.local`, `*.internal`,
+  `*.home.arpa`, and private/loopback/link-local IP addresses including
+  `169.254.169.254` (the cloud metadata endpoint) as well as IPv6
+  `::1`/`fc00::/7`/`fe80::`.
+- **Redirects are followed one at a time** (`redirect: 'manual'`) with the same
+  guard on **every hop**. Previously `redirect: 'follow'` meant the second hop
+  and beyond were never seen — so a guard on the initial link alone could be
+  bypassed with a single redirect. Relative `Location` values are resolved
+  correctly, and hops are capped at 5 so a redirect loop cannot hang.
 
-Batas yang harus disadari: ini **bukan** penjagaan menyeluruh. Ia menutup kelas
-"tautan menuju ke dalam", bukan semua kemungkinan. Yang tetap dipertahankan dan
-tidak diubah: balasan wajib benar-benar PDF (magic `%PDF-` dan ≥ 1.000 byte) dan
-penulisan tetap atomik (`.part` → rename).
+Limits that must be understood: this is **not** comprehensive protection. It
+closes the "link pointing inward" class, not every possibility. What is kept and
+unchanged: the response must really be a PDF (magic `%PDF-` and ≥ 1,000 bytes)
+and writes stay atomic (`.part` → rename).
 
-Diverifikasi: **uji nyata** mengunduh PDF arXiv sungguhan lewat `paper_fulltext`
-dan mengubahnya jadi Markdown (39,8 KB) dalam 2 detik — penjaganya tidak
-menghalangi jalur yang sah.
+Verified: a **live test** downloaded a real arXiv PDF through `paper_fulltext`
+and converted it to Markdown (39.8 KB) in 2 seconds — the guard does not block
+the legitimate path.
 
-### Uji
+### Tests
 
-`uji-teks-lengkap` **16 → 43 asersi** (27 baru: 4 tautan yang harus diizinkan,
-12 yang harus ditolak, 3 batas anti-over-blocking, dan 5 skenario redirect
-termasuk Location relatif serta lingkaran tak berujung).
+`uji-teks-lengkap` **16 → 43 assertions** (27 new: 4 links that must be allowed,
+12 that must be rejected, 3 anti-over-blocking bounds, and 5 redirect scenarios
+including relative Location and an endless loop).
 
 ## [0.4.0] - 2026-10-02
 
-**Dua kemampuan baru, dan tetap SATU pintu.** Tidak ada tool baru: peta sitasi
-masuk sebagai `analisis: "peta"` pada `paper_citations`, dan cache masuk sebagai
-perilaku `paper_search`.
+**Two new capabilities, and still ONE entry point.** No new tools: the citation
+map arrives as `analysis: "map"` on `paper_citations`, and the cache arrives as
+`paper_search` behavior.
 
-### Added — peta struktur sitasi (issue upstream #122)
+### Added — citation structure map (upstream issue #122)
 
-`paper({ mode: "citations", identifier, analisis: "peta" })` membangun peta
-bidang dari **rujukan**, bukan dari kata kunci:
+`paper({ mode: "citations", identifier, analysis: "map" })` builds a map of the
+field from **references**, not from keywords:
 
-- **Bibliographic coupling** — kedekatan tiap karya dengan benih lewat rujukan
-  yang SAMA. Menjawab "siapa yang paling sebidang dengan paper ini".
-- **Co-citation** — rujukan yang paling sering dikutip BERSAMA oleh kandidat;
-  inilah "dasar bersama" sebuah bidang.
-- **Pengelompokan klaster** — dua syarat sekaligus (cosine DAN jumlah rujukan
-  sama), karena masing-masing punya lubang: cosine saja menyambungkan karya
-  berdaftar-rujukan sangat pendek, jumlah saja menyambungkan karya besar yang
-  kebetulan beririsan. Ambangnya **dilaporkan** di keluaran.
-- **Jembatan antar-klaster** — karya yang nyaris masuk dua bidang sekaligus.
-  Dihitung **dua tingkat** (klaster ketat + keterkaitan longgar), karena dengan
-  satu tingkat sebuah jembatan justru MELEBUR kedua klaster sehingga tidak
-  pernah terdeteksi. Rekaman wadah (prosiding) yang punya ratusan rujukan
-  **ditandai**, bukan dianggap temuan.
+- **Bibliographic coupling** — each work's closeness to the seed through
+  references they SHARE. Answers "who is most in the same field as this paper".
+- **Co-citation** — the references most often cited TOGETHER by the candidates;
+  this is the "shared foundation" of a field.
+- **Cluster grouping** — two conditions at once (cosine AND shared-reference
+  count), because each has a hole: cosine alone connects works with very short
+  reference lists, count alone connects large works that happen to overlap. The
+  thresholds are **reported** in the output.
+- **Bridges between clusters** — works that nearly belong to two fields at once.
+  Computed at **two levels** (strict cluster + loose linkage), because with a
+  single level a bridge actually MERGES the two clusters and is therefore never
+  detected. Proceedings records with hundreds of references are **flagged**, not
+  treated as a finding.
 
-Uji nyata pada "Guidelines for Human-AI Interaction": coupling menemukan
-*Questioning the AI* (0,143), co-citation menemukan LIME *"Why Should I Trust
-You?"* (dikutip bersama 8×), klaster XAI terbentuk, dan jembatan teratas adalah
-survey sungguhan yang menyambung 4 klaster. **2 permintaan OpenAlex**, 2,2 detik.
+Live test on "Guidelines for Human-AI Interaction": coupling found
+*Questioning the AI* (0.143), co-citation found LIME *"Why Should I Trust
+You?"* (cited together 8×), the XAI cluster formed, and the top bridge was a
+genuine survey connecting 4 clusters. **2 OpenAlex requests**, 2.2 seconds.
 
-### Added — cache pencarian berbatas (semangat #94/#140)
+### Added — bounded search cache (spirit of #94/#140)
 
-`paper_search` kini memakai cache lokal (`~/.dsh/paper-search/cache-pencarian.json`):
+`paper_search` now uses a local cache (`~/.dsh/paper-search/cache-search.json`):
 
-- **Kegagalan TIDAK PERNAH disimpan** — hanya jawaban yang berhasil. Kalau tidak,
-  gangguan sesaat akan "menular" selama TTL dan sumber yang sudah pulih tetap
-  terlihat mati.
-- **Sumber ber-kunci dan ber-DOI dilewati** (CORE, Unpaywall).
-- **Kunci tidak memuat kredensial** — kunci API/email tidak masuk kunci cache,
-  supaya berkas cache tidak menjadi tempat rahasia bocor.
-- **Berbatas**: TTL 30 menit, maks 200 entri, maks 2 MB; yang paling lama dipakai
-  dibuang lebih dulu. Ditulis **atomik** (`.part` → rename), dan berkas rusak
-  tidak melumpuhkan apa pun.
-- **Selalu terlihat**: umur cache disebut di laporan, `paksa_ulang: true` untuk
-  mengabaikannya, dan `mode: "status"` melaporkan isi/batas cache serta bisa
-  membersihkannya (`bersihkan_cache: true`).
+- **Failures are NEVER stored** — only answers that succeeded. Otherwise a
+  momentary outage would "infect" the whole TTL and a source that has already
+  recovered would still look dead.
+- **Keyed and DOI-based sources are skipped** (CORE, Unpaywall).
+- **Keys contain no credentials** — API keys/email never enter the cache key, so
+  the cache file does not become a place where secrets leak.
+- **Bounded**: TTL 30 minutes, max 200 entries, max 2 MB; the least recently
+  used is dropped first. Written **atomically** (`.part` → rename), and a
+  corrupt file does not disable anything.
+- **Always visible**: the cache age is stated in the report, `force_refresh: true`
+  ignores it, and `mode: "status"` reports the cache's contents/limits and can
+  clear it (`clear_cache: true`).
 
-Terukur: pencarian kedua **2.118 ms → 1 ms**, tetap berhasil ketika jaringan
-sengaja dimatikan, dan `paksa_ulang` benar-benar mencari ulang (gagal saat
-jaringan mati — bukti ia tidak diam-diam memakai cache).
+Measured: the second search **2,118 ms → 1 ms**, still succeeding when the
+network was deliberately switched off, and `force_refresh` really does search
+again (it failed with the network off — proof it does not silently use the
+cache).
 
-### Uji
+### Tests
 
-- `test/uji-peta-sitasi.mjs` — **37 asersi** (baru, murni/offline) + 2 mutasi.
-- `test/uji-cache-pencarian.mjs` — **34 asersi** (baru, jam dipalsukan).
-- `test/uji-plugin.mjs` — **59** (naik 2: skema mode peta dijaga).
-- `test/uji-sumber.mjs` 79 · `test/uji-satu-pintu.mjs` 30 · `test/uji-cari-saring.mjs` 21
-  · `test/uji-teks-lengkap.mjs` 16 · `test/uji-kesesuaian-dokumen.mjs` 6.
-- **Uji nyata** (bukan unit): peta dijalankan ke OpenAlex untuk kedua arah, dan
-  cache diuji dengan jaringan dimatikan.
+- `test/test-citation-map.mjs` — **37 assertions** (new, pure/offline) + 2 mutations.
+- `test/test-cache-search.mjs` — **34 assertions** (new, faked clock).
+- `test/test-plugin.mjs` — **59** (up 2: the map mode schema is guarded).
+- `test/test-sources.mjs` 79 · `test/test-single-door.mjs` 30 · `test/test-search-filter.mjs` 21
+  · `test/test-fulltext.mjs` 16 · `test/test-doc-consistency.mjs` 6.
+- **Live tests** (not unit): the map was run against OpenAlex in both directions,
+  and the cache was tested with the network switched off.
 
 ## [0.3.1] - 2026-10-02
 
-**Menutup dua sumber upstream yang belum pernah dinilai** — satunya dipakai,
-satunya ditolak dengan bukti.
+**Closing two upstream sources that had never been evaluated** — one adopted, one
+rejected with evidence.
 
-### Added — ChemRxiv (22 → 23 sumber)
+### Added — ChemRxiv (22 → 23 sources)
 
-- **`chemrxiv`** — pra-cetak **kimia**, lewat OpenAlex (repositori `S4393918830`,
-  **64.495** karya; "catalysis" → **13.594** hasil nyata, diukur 2 Okt 2026).
-- **Mengapa bukan situsnya:** `chemrxiv.org` membalas **HTTP 403** dengan halaman
-  Cloudflare ("Just a moment...") untuk halaman pencarian **maupun** gateway
-  API-nya. Modul upstream mengambil HTML dari sana — jalur itu akan diblokir,
-  jalur OpenAlex ini tidak. Sama seperti SSRN (0.2.0) dan IEEE (0.3.0).
-- Nol kode baru: `chemrxiv` memakai fungsi bersama `openalexRepositori()` yang
-  sudah dipakai SSRN, bioRxiv, dan medRxiv.
+- **`chemrxiv`** — **chemistry** preprints, through OpenAlex (repository
+  `S4393918830`, **64,495** works; "catalysis" → **13,594** real results,
+  measured 2 Oct 2026).
+- **Why not the site itself:** `chemrxiv.org` answers **HTTP 403** with a
+  Cloudflare page ("Just a moment...") for both the search page **and** its API
+  gateway. The upstream module scrapes HTML from there — that path would be
+  blocked, this OpenAlex path is not. Same as SSRN (0.2.0) and IEEE (0.3.0).
+- Zero new code: `chemrxiv` uses the shared `openAlexRepository()` function
+  already used by SSRN, bioRxiv, and medRxiv.
 
-### Ditolak — OAI-PMH, dengan alasan protokol (bukan "endpointnya mati")
+### Rejected — OAI-PMH, for a protocol reason (not "the endpoint is dead")
 
-`oaipmh` di upstream adalah klien protokol **generik**, dan **protokolnya tidak
-mendukung pencarian kata kunci sama sekali**: modul itu memakai
-`verb=ListRecords` (pemanenan), sedangkan parameter `query` **diterima di tanda
-tangan fungsi tetapi tidak pernah dikirim ke API**. Artinya ia mengembalikan
-rekaman sembarang yang tidak cocok dengan kueri — persis jenis kesalahan senyap
-yang paket ini tolak di seluruh bagian lain. Endpoint defaultnya
-(`api.base-search.net/oai`, yaitu BASE — yang sudah kita tolak karena butuh IP
-institusi) juga menjawab **HTTP 404** saat diukur 2 Okt 2026.
+`oaipmh` upstream is a **generic** protocol client, and **the protocol does not
+support keyword search at all**: that module uses `verb=ListRecords`
+(harvesting), while the `query` parameter **is accepted in the function
+signature but never sent to the API**. That means it returns arbitrary records
+that do not match the query — exactly the kind of silent error this package
+rejects everywhere else. Its default endpoint (`api.base-search.net/oai`, i.e.
+BASE — which we already rejected because it needs an institutional IP) also
+answers **HTTP 404** when measured on 2 Oct 2026.
 
-Pencarian sungguhan lewat OAI-PMH menuntut pengunduhan massal seluruh rekaman,
-bukan pencarian literatur. Dicatat di `upstream/catatan.json` supaya tidak
-dinilai ulang dari nol.
+Real search through OAI-PMH requires bulk downloading of entire records, not
+literature search. Recorded in `upstream/notes.json` so it is not re-evaluated
+from scratch.
 
-### Uji
+### Tests
 
-- `test/uji-sumber.mjs` — **79 asersi** (jumlahnya tidak berubah; menambah sumber
-  tidak menambah asersi per sumber), 23 sumber diuji hidup, **22 menjawab**.
-- `test/uji-kesesuaian-dokumen.mjs` — **6 asersi**; ia yang menunjuk **10 tempat**
-  dokumen yang harus diperbarui saat sumbernya bertambah.
-- `test/uji-plugin.mjs` 57 · `test/uji-satu-pintu.mjs` 30 · `test/uji-cari-saring.mjs` 21
-  · `test/uji-teks-lengkap.mjs` 16.
+- `test/test-sources.mjs` — **79 assertions** (the count does not change; adding a
+  source does not add per-source assertions), 23 sources tested live, **22
+  answered**.
+- `test/test-doc-consistency.mjs` — **6 assertions**; it is what points at the
+  **10 places** in the docs that must be updated when a source is added.
+- `test/test-plugin.mjs` 57 · `test/test-single-door.mjs` 30 · `test/test-search-filter.mjs` 21
+  · `test/test-fulltext.mjs` 16.
 
 ## [0.3.0] - 2026-10-01
 
-**Cakupan lebih luas tanpa menambah satu pun tool** — dan tanpa satu pun pengikis
-baru: seluruh sumber baru ini diambil lewat API yang **sudah** dipakai plugin ini.
+**Broader coverage without adding a single tool** — and without a single new
+scraper: every one of these new sources is fetched through APIs this plugin
+**already** uses.
 
-### Added — tiga sumber baru (19 → 22)
+### Added — three new sources (19 → 22)
 
-- **`ieee`** — lewat Crossref `filter=member:263`, **tanpa kunci API**. Trik yang sama
-  dengan ACM (#123). Terukur: `member:263` menjawab **136.771** karya; dengan
-  `type:proceedings-article` **106.734**; setiap hasil ber-DOI `10.1109/…`.
-  ⚠️ **Batas yang sengaja tidak diklaim:** Crossref **tidak** membawa abstrak IEEE
-  (terukur 0 dari 5 rekaman), jadi abstraknya biasanya kosong — medan sitasinya ada.
-  Upstream (PR #138) tetap membuat IEEE butuh kunci; jalur ini tidak.
-- **`biorxiv`** dan **`medrxiv`** — lewat **filter sumber OpenAlex**, bukan API mereka
-  (API bioRxiv/medRxiv tidak punya pencarian kata kunci sama sekali, hanya rentang
-  tanggal/kategori). Terukur: bioRxiv `S4306402567` **345.976** karya ("digital
-  literacy" → 159; dengan pra-cetak + sitasi > 4 → 141) · medRxiv `S3005729997`
-  **87.941** karya ("digital literacy" → **1.352**).
-- Ini juga membersihkan kode: SSRN, bioRxiv, dan medRxiv kini memakai **satu** fungsi
-  bersama `openalexRepositori()`.
+- **`ieee`** — through Crossref `filter=member:263`, **without an API key**. The
+  same trick as ACM (#123). Measured: `member:263` answers **136,771** works;
+  with `type:proceedings-article` **106,734**; every result carries a DOI
+  `10.1109/…`. ⚠️ **A limit deliberately not claimed:** Crossref does **not**
+  carry IEEE abstracts (measured 0 out of 5 records), so the abstract is usually
+  empty — the citation fields are there. Upstream (PR #138) still makes IEEE
+  require a key; this path does not.
+- **`biorxiv`** and **`medrxiv`** — through the **OpenAlex source filter**, not
+  their own APIs (the bioRxiv/medRxiv APIs have no keyword search at all, only
+  date/category ranges). Measured: bioRxiv `S4306402567` **345,976** works
+  ("digital literacy" → 159; with preprint + citations > 4 → 141) · medRxiv
+  `S3005729997` **87,941** works ("digital literacy" → **1,352**).
+- This also cleans up the code: SSRN, bioRxiv, and medRxiv now share **one**
+  function, `openAlexRepository()`.
 
-### Added — push-down pra-cetak
+### Added — preprint push-down
 
-- `jenis: ["preprint"]` kini diteruskan ke **Europe PMC** sebagai `AND SRC:PPR`
-  (terukur: "digital literacy" + SRC:PPR → **2.775**, tanpa itu **85.096**).
-  Penambahan ini hanya terjadi saat pra-cetak memang diminta — tidak ada logika "NOT"
-  yang bisa membuang hasil diam-diam.
+- `kind: ["preprint"]` is now forwarded to **Europe PMC** as `AND SRC:PPR`
+  (measured: "digital literacy" + SRC:PPR → **2,775**, without it **85,096**).
+  This addition only happens when preprints are actually requested — there is no
+  "NOT" logic that could silently drop results.
 
-### Added — alat & penjaga untuk mengikuti upstream
+### Added — tools & guards for following upstream
 
-- **`upstream/catatan.json`** — buku catatan keputusan atas issue/PR upstream
-  (diadopsi / sebagian / ditolak / tidak-relevan / belum), beserta alasan dan versi.
-- **`alat/pindai-upstream.mjs`** — satu perintah yang melaporkan: item **BARU**,
-  yang **BELUM** diputuskan, yang **BERUBAH** sesudah pemindaian terakhir (keputusan
-  lama bisa jadi tidak berlaku), dan **penyimpangan daftar sumber** yang diukur dari
-  berkas asli `paper_search_mcp/academic_platforms/` — bukan dari ingatan.
-  Ada `--ketat` yang keluar kode 1 bila ada yang perlu ditindak.
-- **`test/uji-kesesuaian-dokumen.mjs`** — penjaga yang **GAGAL** bila angka sumber di
-  README / SKILL.md / package.json / entri katalog tidak sama dengan jumlah sebenarnya,
-  bila klaim "tanpa kredensial" tidak cocok dengan medan `credit`, atau bila ada id
-  sumber yang tidak punya **baris tabel** di SKILL.md. Termasuk 3 mutasi self-test.
-  Dibuat **sebelum** sumber barunya ditambahkan — dan langsung menunjuk 9 tempat yang
-  harus diperbarui, sehingga tidak ada lagi pembaruan dokumen dengan tangan.
+- **`upstream/notes.json`** — a decision log over upstream issues/PRs (adopted /
+  partial / rejected / not-relevant / pending), with reasons and versions.
+- **`tools/scan-upstream.mjs`** — one command that reports: **NEW** items, items
+  **NOT YET** decided, items **CHANGED** since the last scan (old decisions may
+  no longer apply), and **source-list deviations** measured from the real
+  `paper_search_mcp/academic_platforms/` files — not from memory. There is
+  `--strict`, which exits with code 1 if anything needs action.
+- **`test/test-doc-consistency.mjs`** — a guard that **FAILS** if the source
+  count in README / SKILL.md / package.json / the catalog entry does not match
+  the real number, if a "no credentials" claim does not match the `credit`
+  field, or if a source id has no **table row** in SKILL.md. Includes 3
+  self-test mutations. Built **before** the new sources were added — and it
+  immediately pointed at 9 places that had to be updated, so there is no more
+  hand-editing of docs.
 
-### Uji
+### Tests
 
-- `test/uji-sumber.mjs` — **79 asersi**, 22 sumber diuji hidup (**21 menjawab**, 1 SKIP
-  karena jaringan).
-- `test/uji-kesesuaian-dokumen.mjs` — **6 asersi** (baru).
-- `test/uji-plugin.mjs` 57 · `test/uji-satu-pintu.mjs` 30 · `test/uji-cari-saring.mjs` 21
-  · `test/uji-teks-lengkap.mjs` 16.
+- `test/test-sources.mjs` — **79 assertions**, 22 sources tested live (**21
+  answered**, 1 SKIP due to network).
+- `test/test-doc-consistency.mjs` — **6 assertions** (new).
+- `test/test-plugin.mjs` 57 · `test/test-single-door.mjs` 30 · `test/test-search-filter.mjs` 21
+  · `test/test-fulltext.mjs` 16.
 
 ## [0.2.0] - 2026-10-01
 
-**Rilis fitur terbesar sejak paket ini ada.** Lima usulan yang diambil dari
-issue/PR upstream `openags/paper-search-mcp` — dipilih setelah memeriksa mana
-yang belum kita miliki, karena beberapa di antaranya **sudah** ada di sini
-(validasi `%PDF-` sebelum menulis, pacing arXiv 3 detik, parser defensif).
+**The biggest feature release since this package existed.** Five proposals taken
+from upstream issues/PRs in `openags/paper-search-mcp` — chosen after checking
+which ones we did not already have, because several of them **already** exist
+here (`%PDF-` validation before writing, 3-second arXiv pacing, defensive
+parsers).
 
-### Added — dua sumber baru (17 → 19)
+### Added — two new sources (17 → 19)
 
-- **`openreview`** (issue upstream #83) — konferensi ML: ICLR, NeurIPS, ICML.
-  Tanpa kunci API. Yang dipakai adalah `api2.openreview.net/notes/search?term=…`
-  karena endpoint generik `/notes` dibalas **HTTP 403 `ChallengeRequiredError`**
-  (verifikasi bot), dan parameter kuerinya bernama `term`, bukan `query`.
-  DOI diambil dari medan `_bibtex` supaya karya yang sama ikut ter-dedup dengan
-  Crossref, dan `pdf` relatif (`/pdf/<hash>.pdf`) dilengkapi ke openreview.net.
-- **`ssrn`** (PR upstream #60) — pra-cetak ekonomi/hukum/bisnis, **lewat
-  OpenAlex**, tanpa mengambil satu pun halaman ssrn.com (situs itu membalas
-  **HTTP 403** untuk permintaan biasa). Seluruh 1,65 juta karya SSRN terindeks
-  OpenAlex sebagai satu sumber (`S4210172589`); terukur: `search=digital
-  literacy` + filter sumber itu menjawab **3.836 karya**.
+- **`openreview`** (upstream issue #83) — ML conferences: ICLR, NeurIPS, ICML.
+  No API key. What is used is `api2.openreview.net/notes/search?term=…` because
+  the generic `/notes` endpoint answers **HTTP 403 `ChallengeRequiredError`**
+  (bot verification), and its query parameter is named `term`, not `query`.
+  DOIs are taken from the `_bibtex` field so the same work also dedups against
+  Crossref, and relative `pdf` (`/pdf/<hash>.pdf`) is completed to
+  openreview.net.
+- **`ssrn`** (upstream PR #60) — economics/law/business preprints, **through
+  OpenAlex**, without fetching a single ssrn.com page (that site answers
+  **HTTP 403** for ordinary requests). All 1.65 million SSRN works are indexed
+  by OpenAlex as one source (`S4210172589`); measured: `search=digital
+  literacy` + that source filter answers **3,836 works**.
 
-### Added — penyaringan & pengurutan hasil pencarian
+### Added — filtering & sorting of search results
 
-- **`urutkan`**: `relevansi` (bawaan) · `sitasi` · `terbaru`. Karya yang angkanya
-  tidak dilaporkan sumber ditaruh paling belakang — bukan dianggap nol.
-- **`min_sitasi`**: hanya karya dengan sitasi ≥ N. Karya dari sumber yang tidak
-  melaporkan sitasi **dibuang**, dan jumlahnya disebut di laporan.
-- **`jenis`**: `article` · `review` · `preprint`. Diteruskan ke sumber yang
-  mendukung (OpenAlex `filter=type:`, Crossref/ACM `filter=type:`) supaya
-  `max_results` tetap terisi hasil yang lolos, lalu disaring lagi setelah dedup.
-  Karya yang jenisnya tidak dilaporkan sumber **tetap ditampilkan** — "tidak
-  disebut" bukan berarti "bukan artikel".
-- Semua yang dibuang **dihitung dan dilaporkan**. "Hasilnya cuma sedikit" tidak
-  boleh menjadi misteri.
+- **`sort`**: `relevance` (default) · `citations` · `newest`. Works whose number
+  is not reported by the source are placed last — not treated as zero.
+- **`min_citations`**: only works with citations ≥ N. Works from sources that do
+  not report citations are **dropped**, and the count is stated in the report.
+- **`kind`**: `article` · `review` · `preprint`. Forwarded to sources that
+  support it (OpenAlex `filter=type:`, Crossref/ACM `filter=type:`) so that
+  `max_results` is still filled with results that pass, then filtered again
+  after dedup. Works whose kind is not reported by the source are **still
+  shown** — "not stated" does not mean "not an article".
+- Everything dropped is **counted and reported**. "There were only a few
+  results" must not become a mystery.
 
 ### Fixed
 
-- **Cache teks penuh bisa menyajikan PDF cacat.** `unduhPdf()` kini menulis
-  lewat berkas `.part` lalu `renameSync` (atomik), dan PDF dari cache diperiksa
-  sebelum dipakai: kalau tidak sah, pasangan `.md`/`.pdf`-nya dibuang lalu
-  diunduh ulang — sembuh sendiri, bukan menyajikan hasil yang diragukan.
-  PDF yang sudah bagus **tidak pernah** dirusak unduhan baru yang gagal.
-- **Nama penulis OpenReview hilang tanpa suara.** `daftarPenulis()` tidak
-  mengenal bentuk `{fullname}` yang dipakai rekaman ORCID/DBLP di sana, sehingga
-  `[{fullname: '…'}]` menghasilkan daftar kosong. Kini dikenali, dan diuji.
-- **`Number(null)` = 0 membuat "sitasi tidak diketahui" terbaca sebagai
-  "0 sitasi"**, sehingga karya tanpa laporan sitasi ikut terbuang oleh
-  `min_sitasi` seolah-olah sitasinya nol. Tertangkap oleh uji baru
-  `test/uji-cari-saring.mjs`.
-- **`venue` OpenReview kadang berisi judulnya sendiri**(terukur pada rekaman
-  ORCID), sehingga judul tampil dua kali; kini diperlakukan sebagai "tidak
-  dilaporkan".
+- **The full-text cache could serve a corrupt PDF.** `downloadPdf()` now writes
+  through a `.part` file then `renameSync` (atomic), and a PDF from the cache is
+  checked before use: if it is not valid, its `.md`/`.pdf` pair is dropped and
+  re-downloaded — self-healing, rather than serving a doubtful result. A good
+  PDF is **never** destroyed by a failed new download.
+- **OpenReview author names vanished silently.** `authorList()` did not
+  recognize the `{fullname}` shape used by ORCID/DBLP records there, so
+  `[{fullname: '…'}]` produced an empty list. Now recognized, and tested.
+- **`Number(null)` = 0 made "citations unknown" read as "0 citations"**, so
+  works without a citation report were dropped by `min_citations` as if their
+  citations were zero. Caught by the new test `test/test-search-filter.mjs`.
+- **OpenReview `venue` sometimes contains its own title** (measured on ORCID
+  records), so the title appeared twice; it is now treated as "not reported".
 
 ### Changed
 
-- Uji `ios` (IOS OneSearch) tidak lagi membuat seluruh uji merah ketika
-  situsnya tidak bisa dihubungi: kegagalan **jaringan** dilaporkan sebagai
-  `SKIP`, sedangkan sumber yang *menjawab* dengan galat tetap `FAIL`.
-  Dasarnya terukur: `onesearch.id` menjawab `fetch failed` di plugin 0.2.0
-  **dan** di salinan 0.1.9 yang terpasang.
+- The `ios` test (IOS OneSearch) no longer turns the whole suite red when its
+  site cannot be reached: a **network** failure is reported as `SKIP`, while a
+  source that *answers* with an error stays `FAIL`. The basis is measured:
+  `onesearch.id` answered `fetch failed` in plugin 0.2.0 **and** in the
+  installed 0.1.9 copy.
 
-### Uji
+### Tests
 
-- `test/uji-cari-saring.mjs` — **baru**, 21 asersi murni (tanpa jaringan) untuk
-  penyaringan & pengurutan.
-- `test/uji-teks-lengkap.mjs` — **baru**, 16 asersi untuk keutuhan cache PDF
-  (validasi, tulis atomik, sembuh sendiri). Seluruh jaringan dipalsukan.
-- `test/uji-sumber.mjs` — **79 asersi** (19 sumber diuji hidup; 18 menjawab,
-  1 SKIP karena jaringan).
-- `test/uji-plugin.mjs` — **57 asersi**, `test/uji-satu-pintu.mjs` — **30 asersi**.
-- Perbaikan uji: asersi ACM diperbarui untuk bentuk filter yang kini
-  menggabungkan `jenis`, bukan menggantikannya.
+- `test/test-search-filter.mjs` — **new**, 21 pure assertions (no network) for
+  filtering & sorting.
+- `test/test-fulltext.mjs` — **new**, 16 assertions for PDF cache integrity
+  (validation, atomic write, self-healing). All network is faked.
+- `test/test-sources.mjs` — **79 assertions** (19 sources tested live; 18
+  answered, 1 SKIP due to network).
+- `test/test-plugin.mjs` — **57 assertions**, `test/test-single-door.mjs` — **30
+  assertions**.
+- Test fix: the ACM assertion was updated for the filter shape that now
+  combines `kind` rather than replacing it.
 
 ## [0.1.9] - 2026-10-01
 
-**Dokumentasi saja — tidak ada perubahan kode.** Rilis ini ada karena panduan
-bawaan plugin masih mengasumsikan kelima tool terpisah.
+**Documentation only — no code changes.** This release exists because the
+plugin's bundled guide still assumed the five separate tools.
 
 ### Fixed
 
-- **Panduan bawaan** (`skills/paper-search/SKILL.md`) masih berjudul **"Lima
-  tool"** dan hanya menyebut nama `paper_search` / `paper_status` /
-  `paper_citations` / `paper_oa` / `paper_fulltext` — padahal sejak **0.1.8**
-  sebuah profil boleh memasang `tools: "one"`, dan di profil itu kelima nama
-  tersebut **tidak ada**. Sekarang: judulnya **"Lima kemampuan"**, ada **kolom
-  padanan satu pintu** (`paper({ mode: "…" })`), plus contoh untuk **kedua**
-  bentuk. Sebelumnya catatan mode hanya **disisipkan saat berkas dimuat**, jadi
-  tabel di badan berkas tetap menunjuk nama yang tidak ada di profil satu pintu —
-  itu yang diperbaiki di sini.
+- **The bundled guide** (`skills/paper-search/SKILL.md`) was still titled
+  **"Five tools"** and only mentioned the names `paper_search` / `paper_status` /
+  `paper_citations` / `paper_oa` / `paper_fulltext` — even though since **0.1.8**
+  a profile may install `tools: "one"`, and in that profile those five names
+  **do not exist**. Now: the title is **"Five capabilities"**, there is a
+  **single-entry-point mapping column** (`paper({ mode: "…" })`), plus examples
+  for **both** shapes. Previously the mode note was only **inserted when the
+  file was loaded**, so the table in the file body still pointed at names that
+  do not exist in the single-entry-point profile — that is what is fixed here.
 
-### Tidak berubah
+### Unchanged
 
-- `lib/` **identik dengan 0.1.8**: 17 sumber, lima tool, dan perilakunya sama.
-  Bawaan tetap **lima tool terpisah**; `tools: "one"` tetap **opt-in**.
-- Deskripsi katalog tetap **425 huruf** (batas keras katalog 500).
+- `lib/` is **identical to 0.1.8**: 17 sources, five tools, and the same
+  behavior. The default stays **five separate tools**; `tools: "one"` stays
+  **opt-in**.
+- The catalog description stays **425 characters** (catalog hard limit 500).
 
 ### Verified
 
-- `test/uji-sumber.mjs` **77/77** · `test/uji-plugin.mjs` **57/57** ·
-  `test/uji-satu-pintu.mjs` **30/30** · `test/uji-di-dsh.mjs` **27/27**
-  (boot DSH 0.2.0-rc.2 sungguhan).
-- `check-all.mjs` (penjaga DSH di mesin ini) **24 pemeriksaan**, 1 SKIP karena
-  Reddit membalas HTTP 403 — bukan kerusakan kode.
+- `test/test-sources.mjs` **77/77** · `test/test-plugin.mjs` **57/57** ·
+  `test/test-single-door.mjs` **30/30** · `test/test-in-dsh.mjs` **27/27**
+  (a real DSH 0.2.0-rc.2 boot).
+- `check-all.mjs` (the DSH guard on this machine) **24 checks**, 1 SKIP because
+  Reddit answered HTTP 403 — not a code defect.
 
 ## [0.1.8] - 2026-09-29
 
-**Opsi baru `tools: "one"` — kelima tool digabung jadi SATU pintu.** Bawaan
-**tidak berubah**: tanpa config, kelima tool tetap terpisah.
+**New option `tools: "one"` — the five tools merged into ONE entry point.** The
+default **does not change**: without config, the five tools stay separate.
 
 ### Added
 
-- **Config `tools`**: `"five"` (bawaan — perilaku lama, 5 tool terpisah) atau
-  `"one"` (satu tool bernama **`paper`** dengan parameter `mode`:
-  `search` · `status` · `citations` · `oa` · `fulltext`). Nilai tak dikenal
-  **jatuh ke bawaan** dan alasannya dilaporkan di catatan `apply()` — bukan
-  dipakai diam-diam.
+- **Config `tools`**: `"five"` (default — old behavior, 5 separate tools) or
+  `"one"` (one tool named **`paper`** with a `mode` parameter:
+  `search` · `status` · `citations` · `oa` · `fulltext`). An unrecognized value
+  **falls back to the default** and the reason is reported in the `apply()`
+  note — not used silently.
 
-### Kenapa opsi ini ada
+### Why this option exists
 
-Kelima definisi tool ikut dikirim ke model **setiap permintaan**. Terukur
-29 Sep 2026 di mesin ini (`test/uji-satu-pintu.mjs`):
+All five tool definitions are sent to the model on **every request**. Measured
+29 Sep 2026 on this machine (`test/test-single-door.mjs`):
 
-| | huruf JSON | perkiraan token |
+| | JSON characters | estimated tokens |
 |---|---|---|
-| lima tool (bawaan) | 4.959 | ~1.240 |
-| satu pintu (`tools: "one"`) | 2.159 | ~540 |
-| **hemat** | **56%** | ~700 token/permintaan |
+| five tools (default) | 4,959 | ~1,240 |
+| one entry point (`tools: "one"`) | 2,159 | ~540 |
+| **saving** | **56%** | ~700 tokens/request |
 
-### Harga yang harus disadari (jangan disembunyikan)
+### The cost you must be aware of (do not hide it)
 
-- **Nama tool berhenti menjelaskan dirinya.** `paper_fulltext` langsung terbaca
-  "baca isi paper"; sekarang kemampuan itu ada di balik `paper` +
-  `mode: "fulltext"`, jadi model harus membaca deskripsi untuk menemukannya.
-- **Skema jadi longgar.** Satu skema tidak bisa mewajibkan parameter berbeda per
-  mode, jadi penjagaan berpindah dari DSH ke plugin: `paper({ mode: "oa" })` tanpa
-  `identifier` **ditolak oleh plugin** (pesannya meniru penolakan skema), bukan
-  oleh harness sebelum tool dipanggil.
-- Karena itu **bawaan tetap lima tool** — mode ini untuk pemasangan yang memang
-  mengutamakan ongkos konteks.
+- **Tool names stop explaining themselves.** `paper_fulltext` reads directly as
+  "read the content of a paper"; now that capability sits behind `paper` +
+  `mode: "fulltext"`, so the model has to read the description to find it.
+- **The schema becomes loose.** One schema cannot require different parameters
+  per mode, so the guard moves from DSH to the plugin: `paper({ mode: "oa" })`
+  without `identifier` is **rejected by the plugin** (its message imitates a
+  schema rejection), not by the harness before the tool is called.
+- That is why **the default stays five tools** — this mode is for installations
+  that genuinely prioritize context cost.
 
-### Jaminan yang diuji
+### Guarantees under test
 
-Skema dan daftar parameter wajib **DITURUNKAN** dari kelima definisi tool asli
-(bukan disalin), sehingga tidak bisa menyimpang saat tool aslinya berubah. Badan
-skill diberi **catatan mode** saat `tools: "one"` supaya dokumen tidak menyuruh
-memanggil nama tool yang tidak ada; deskripsi katalognya dijaga **≤ 500 huruf**
-(terukur 474). Semuanya di `test/uji-satu-pintu.mjs` — **29 asersi**.
+The schema and the list of required parameters are **DERIVED** from the five
+original tool definitions (not copied), so they cannot drift when the original
+tools change. The skill body is given a **mode note** when `tools: "one"` so the
+document does not tell you to call tool names that do not exist; its catalog
+description is kept **≤ 500 characters** (measured 474). All of it is in
+`test/test-single-door.mjs` — **29 assertions**.
 
 ## [0.1.7] - 2026-09-29
 
-**Rapian keluaran `paper_status`, dan berhenti meninggalkan berkas sampah.**
-Tidak ada tool yang ditambah, diganti nama, atau dihapus — kelimanya tetap sama.
+**Tidying `paper_status` output, and no longer leaving junk files behind.** No
+tool was added, renamed, or removed — the five stay the same.
 
 ### Fixed
 
-- **`paper_status` tidak lagi menyuruh memasang CLI pihak ketiga.** Blok
-  `== CLI paper-search-mcp (opsional) ==` **dihapus**, dan isinya memang sudah
-  tidak akurat: ia menyebut CLI itu "menambah CORE, Zenodo, HAL, Unpaywall",
-  padahal **keempatnya sudah menjadi sumber native** plugin ini. Diganti satu
-  baris catatan: seluruh sumber sudah native dan plugin **tidak memerlukan CLI
-  atau server pihak ketiga apa pun** — jadi keluaran `paper_status` tidak lagi
-  menawarkan pemasangan yang tidak dibutuhkan.
-- **Deskripsi tool `paper_status` tidak lagi menjanjikan pemeriksaan yang tidak
-  ada.** Bunyinya dulu "…serta apakah CLI paper-search-mcp opsional terpasang",
-  padahal kode **tidak pernah** memeriksa itu. Sekarang bunyinya sesuai kenyataan:
-  kredensial, status tiap sumber, dan **konverter PDF→Markdown** yang tersedia
-  untuk `paper_fulltext` — plus petunjuk `probe:false` untuk memeriksa tanpa
-  jaringan.
-- **Berkas `<nama>.md.err` tidak lagi menumpuk.** Sebelumnya setiap konversi
-  meninggalkan satu berkas galat; **terukur 29 Sep 2026 16:05 WIB: satu berkas
-  0 byte per konversi** (konversi ulang arXiv 1706.03762). Sekarang berkas itu
-  **dihapus saat konversi BERHASIL**, dan **tetap disimpan saat GAGAL** supaya
-  pesan asli konverter masih bisa dilaporkan. Penghapusan dilakukan **sesudah**
-  descriptor ditutup — di Windows, menghapus berkas yang masih terbuka akan gagal.
-- **Markdown 0 byte sisa konversi yang GAGAL ikut dibuang.** Sebelumnya PDF yang
-  gagal dikonversi meninggalkan `.md` kosong di folder perpustakaan. Pemanggil
-  sebenarnya sudah aman (`size > 0` dijaga di `siapkanTeksLengkap`), tetapi
-  berkas 0 byte itu membingungkan kalau foldernya dilihat manusia — sekarang
-  dihapus saat gagal, sementara **pesan galatnya tetap disimpan di `.err`**.
-  Terukur 29 Sep 2026: PDF palsu → `kode keluar 1 — anydoc: malformed document:
-  not a PDF`, `.err` tetap ada, `.md` 0 byte hilang.
+- **`paper_status` no longer tells you to install a third-party CLI.** The
+  `== CLI paper-search-mcp (optional) ==` block was **removed**, and its content
+  was already inaccurate: it said that CLI "adds CORE, Zenodo, HAL, Unpaywall",
+  when **all four are already native sources** of this plugin. Replaced with a
+  one-line note: all sources are already native and the plugin **requires no
+  third-party CLI or server whatsoever** — so `paper_status` output no longer
+  offers an installation that is not needed.
+- **The `paper_status` tool description no longer promises a check that does not
+  exist.** It used to read "…and whether the optional paper-search-mcp CLI is
+  installed", when the code **never** checked that. It now matches reality:
+  credentials, the status of each source, and the **PDF→Markdown converters**
+  available to `paper_fulltext` — plus a `probe:false` hint to check without the
+  network.
+- **`<name>.md.err` files no longer pile up.** Previously every conversion left
+  one error file behind; **measured 29 Sep 2026 16:05 WIB (UTC+7): one 0-byte file
+  per conversion** (re-converting arXiv 1706.03762). Now that file is **deleted
+  when conversion SUCCEEDS**, and **kept when it FAILS** so the converter's
+  original message can still be reported. The deletion happens **after** the
+  descriptor is closed — on Windows, deleting a file that is still open fails.
+- **0-byte Markdown left over from a FAILED conversion is also dropped.**
+  Previously a PDF that failed to convert left an empty `.md` in the library
+  folder. The caller was actually already safe (`size > 0` is guarded in
+  `prepareFullText`), but that 0-byte file is confusing when a human looks at
+  the folder — it is now deleted on failure, while **the error message is still
+  kept in `.err`**. Measured 29 Sep 2026: fake PDF → `exit code 1 — anydoc:
+  malformed document: not a PDF`, `.err` still present, 0-byte `.md` gone.
 
-### Catatan
+### Notes
 
-- Yang **tidak** berubah: 17 sumber, 5 tool, urutan PDF (arXiv lebih dulu),
-  konversi yang selalu lokal, dan penolakan menembus paywall.
-- Bagi yang memang sudah memakai CLI upstream sebagai pelengkap: plugin ini
-  **tidak melarangnya**, hanya berhenti menyarankannya.
+- What did **not** change: 17 sources, 5 tools, PDF order (arXiv first),
+  conversion that is always local, and the refusal to break through paywalls.
+- For those who already use the upstream CLI as a supplement: this plugin
+  **does not forbid it**, it just stops recommending it.
 
 ## [0.1.6] - 2026-09-29
 
-**Teks lengkap: PDF akses-terbuka diunduh, lalu diubah ke Markdown** supaya agen
-bisa membaca ISI SEBUAH PAPER UTUH — bukan hanya judul dan abstraknya.
+**Full text: an open-access PDF is downloaded, then converted to Markdown** so an
+agent can read the CONTENT OF A WHOLE PAPER — not just its title and abstract.
 
-Satu tool baru (**`paper_fulltext`**, jadi 5 tool) dan satu langkah yang upstream
-tidak punya.
+One new tool (**`paper_fulltext`**, so 5 tools) and one step upstream does not
+have.
 
 ### Added
 
-- **Cadangan arXiv untuk PDF** (adopsi PR upstream **#124**). Diukur 29 Sep 2026:
-  OpenAlex **tidak** menyimpan id arXiv (`ids` hanya `openalex`/`doi`/`mag`), jadi
-  id-nya diturunkan dari DOI `10.48550/arXiv.<id>` atau URL lokasi; kalau tidak
-  ada, versi arXiv **dicari dari judul**. Urutan percobaan PDF: **arXiv lebih
-  dulu**, lalu lokasi OA OpenAlex, terakhir Unpaywall. `paper_fulltext` juga
-  menerima **id arXiv langsung** (`1706.03762`).
+- **arXiv fallback for PDFs** (adopting upstream PR **#124**). Measured 29 Sep
+  2026: OpenAlex does **not** store the arXiv id (`ids` only has
+  `openalex`/`doi`/`mag`), so the id is derived from the DOI
+  `10.48550/arXiv.<id>` or the location URL; if there is none, the arXiv version
+  is **searched by title**. PDF attempt order: **arXiv first**, then the OpenAlex
+  OA location, last Unpaywall. `paper_fulltext` also accepts an **arXiv id
+  directly** (`1706.03762`).
 
-- **Konversi PDF → Markdown lewat `anydoc`** (cadangan: `markitdown`). Model tidak
-  bisa membaca PDF mentah, dan satu paper utuh tidak muat dikirim sekaligus —
-  jadi hasilnya ditulis ke **berkas** `.md` di `~/.dsh/paper-search/md/`, PDF-nya
-  disimpan berdampingan, dan yang dikembalikan adalah **jalurnya** + isi lengkap
-  (kalau ≤ 20.000 huruf) atau cuplikan + cara membacanya bertahap dengan `read`.
+- **PDF → Markdown conversion through `anydoc`** (fallback: `markitdown`). The
+  model cannot read raw PDFs, and a whole paper does not fit in one send — so
+  the result is written to a `.md` **file** in `~/.dsh/paper-search/md/`, the PDF
+  is stored alongside it, and what is returned is the **path** + the full content
+  (if ≤ 20,000 characters) or a preview + how to read it in stages with `read`.
 
-  Terukur: PDF arXiv *Attention Is All You Need* (2,1 MB) → **39,8 KB Markdown
-  dalam 424 ms**; PDF PLOS ONE (2,9 MB) → **70,8 KB dalam 363 ms**, lengkap
-  dengan tautan rujukan. Total lewat tool (termasuk unduh + cari arXiv):
-  **2,4–4,4 detik**, dan **0,3 detik** saat berkasnya sudah ada.
+  Measured: the arXiv PDF of *Attention Is All You Need* (2.1 MB) → **39.8 KB of
+  Markdown in 424 ms**; a PLOS ONE PDF (2.9 MB) → **70.8 KB in 363 ms**, complete
+  with reference links. Total through the tool (including download + arXiv
+  lookup): **2.4–4.4 seconds**, and **0.3 seconds** when the file already exists.
 
-- **`paper_status` kini melaporkan konverter.** Kalau tidak ada anydoc/markitdown,
-  itu dikatakan **sebelum** pengguna mencoba dan gagal — beserta cara memasangnya.
+- **`paper_status` now reports the converter.** If there is no
+  anydoc/markitdown, that is said **before** the user tries and fails — along
+  with how to install it.
 
 ### Fixed
 
-- **Penyaring judul arXiv yang longgar — tertangkap sebelum terbit.** Aturan
-  "judul memuat judul" menerima paper yang BERBEDA: terukur, judul *"Attention Is
-  All You Need"* juga menerima *"Not All Attention Is All You Need"* dan
-  *"Element-wise Attention Is All You Need"* — dan **yang pertama bisa saja yang
-  diunduh**. `kemiripanJudul()` sekarang **ketat**: sama persis setelah
-  normalisasi, atau memuat dengan rasio panjang ≥ 0,92.
-- **Peringatan `DEP0190` Node dihapus.** Menjalankan `anydoc.cmd` dengan
-  `shell: true` memicu peringatan bahwa argumen tidak di-escape. Sekarang
-  memakai `cmd.exe /d /c <skrip> <arg…>` — perilaku sama, tanpa peringatan.
-- **Id arXiv tidak lagi dicap "dipilih dari JUDUL".** Masukan berupa id arXiv
-  diberi baris `arXiv: …` sendiri, bukan peringatan yang menyesatkan.
+- **A loose arXiv title filter — caught before release.** The rule "the title
+  contains the title" accepted papers that were DIFFERENT: measured, the title
+  *"Attention Is All You Need"* also accepted *"Not All Attention Is All You
+  Need"* and *"Element-wise Attention Is All You Need"* — and **the first one
+  could be the one downloaded**. `titleSimilarity()` is now **strict**: exactly
+  equal after normalization, or contained with a length ratio ≥ 0.92.
+- **The Node `DEP0190` warning is gone.** Running `anydoc.cmd` with
+  `shell: true` triggered a warning that arguments were not escaped. It now uses
+  `cmd.exe /d /c <script> <arg…>` — same behavior, no warning.
+- **An arXiv id is no longer stamped "chosen from the TITLE".** An arXiv id
+  input gets its own `arXiv: …` line, not a misleading warning.
 
-### Catatan — batas yang tetap dijaga
+### Notes — limits still enforced
 
-- **Hanya salinan AKSES-TERBUKA.** Tidak menembus paywall, tidak memakai Sci-Hub
-  atau Anna's Archive. Kalau tidak ada salinan sah, `paper_fulltext` **gagal
-  dengan jujur** dan menyebutkan apa yang tidak dilakukannya. Terukur pada
-  `10.1145/3290605.3300233` (ACM, tertutup): gagal, beserta daftar kandidatnya.
-- **Konversi SELALU lokal.** `anydoc` punya mode `--ocr hosted` yang mengirim
-  dokumen ke Firecrawl; plugin ini **tidak pernah** memakainya.
-- **Berkas tidak dihapus otomatis.** Perpustakaan `~/.dsh/paper-search/` tumbuh
-  ±2–3 MB per paper (PDF + Markdown). Folder bisa diubah lewat config plugin
-  `folderTeksLengkap`.
-- ⚠️ **README versi ≤ 0.1.5 menulis "tidak mengunduh PDF" — itu sudah tidak
-  benar.** Kalimatnya sudah diperbaiki di rilis ini.
+- **OPEN-ACCESS copies only.** No breaking through paywalls, no Sci-Hub or
+  Anna's Archive. If there is no legitimate copy, `paper_fulltext` **fails
+  honestly** and states what it did not do. Measured on
+  `10.1145/3290605.3300233` (ACM, closed): it failed, along with the list of
+  candidates.
+- **Conversion is ALWAYS local.** `anydoc` has a `--ocr hosted` mode that sends
+  the document to Firecrawl; this plugin **never** uses it.
+- **Files are not deleted automatically.** The `~/.dsh/paper-search/` library
+  grows by ±2–3 MB per paper (PDF + Markdown). The folder can be changed through
+  the `folderTeksLengkap` plugin config.
+- ⚠️ **README versions ≤ 0.1.5 said "does not download PDFs" — that is no longer
+  true.** The sentence was fixed in this release.
 
-### Diuji
+### Tested
 
-- `node test/uji-sumber.mjs` — **77/77 lulus** (17 sumber, 14 menjawab).
-- `node test/uji-plugin.mjs` — **57/57 lulus**; `paper_fulltext` dipanggil
-  sungguhan: unduh **dan** konversi, lalu dibuktikan berkas `.md`-nya ada di disk
-  dan isinya benar-benar paper itu.
-- `node test/uji-di-dsh.mjs` — **27/27 lulus** di DSH 0.2.0-rc.1 sungguhan.
-- **~20 asersi regresi baru**: enam kasus `kemiripanJudul()` (termasuk dua judul
-  palsu yang dulu lolos), lima kasus id arXiv, empat kasus `kandidatPdf()` (yang
-  membuktikan arXiv dicoba **pertama**), dua kasus `slugBerkas()`, dan
-  `cariKonverter()`.
+- `node test/test-sources.mjs` — **77/77 passed** (17 sources, 14 answered).
+- `node test/test-plugin.mjs` — **57/57 passed**; `paper_fulltext` was called for
+  real: download **and** conversion, then proven that its `.md` file exists on
+  disk and its content really is that paper.
+- `node test/test-in-dsh.mjs` — **27/27 passed** on a real DSH 0.2.0-rc.1.
+- **~20 new regression assertions**: six `titleSimilarity()` cases (including two
+  fake titles that used to pass), five arXiv id cases, four `pdfCandidates()`
+  cases (which prove arXiv is tried **first**), two `fileSlug()` cases, and
+  `findConverter()`.
 
 ## [0.1.5] - 2026-09-29
 
-Dua **saran fitur** dari issue/PR repo upstream `openags/paper-search-mcp` —
-keduanya menunjuk nomornya. Rilis ini menambah **satu sumber** (16 → 17) dan
-**dua tool** (2 → 4). Semuanya diukur 29 Sep 2026.
+Two **feature suggestions** from issues/PRs in the upstream repo
+`openags/paper-search-mcp` — both cite their numbers. This release adds **one
+source** (16 → 17) and **two tools** (2 → 4). Everything measured 29 Sep 2026.
 
 ### Added
 
-- **Sumber `acm` — ACM Digital Library, TANPA kunci API** (PR upstream **#123**).
-  Di upstream, `acm.py` adalah kerangka yang selalu melempar `NotImplementedError`,
-  sehingga `PAPER_SEARCH_MCP_ACM_API_KEY` **tidak akan pernah bisa** diisi nilai
-  sah — sumbernya mustahil dihidupkan lewat kunci. ACM tidak punya API pencarian
-  publik, tetapi **seluruh terbitannya terdaftar di Crossref dengan satu prefix
-  DOI**, dan prefix itu bisa disaring: `filter=prefix:10.1145`.
-  Terukur: `"eye tracking"` → **3 hasil, 520 ms**, semuanya `10.1145/…`
-  (Crossref mencatat 7,6 juta karya ACM).
+- **Source `acm` — ACM Digital Library, WITHOUT an API key** (upstream PR
+  **#123**). Upstream, `acm.py` is a skeleton that always throws
+  `NotImplementedError`, so `PAPER_SEARCH_MCP_ACM_API_KEY` **could never** be
+  filled with a valid value — the source is impossible to bring to life through a
+  key. ACM has no public search API, but **its entire output is registered in
+  Crossref under one DOI prefix**, and that prefix can be filtered:
+  `filter=prefix:10.1145`. Measured: `"eye tracking"` → **3 results, 520 ms**,
+  all `10.1145/…` (Crossref records 7.6 million ACM works).
 
-- **Tool `paper_citations`** (PR upstream **#96**) — graf sitasi OpenAlex, gratis
-  dan tanpa kunci:
-  - `arah: "pengutip"` = paper yang **mengutip** karya ini (snowballing maju);
-  - `arah: "rujukan"` = karya yang **dikutip** paper ini (snowballing mundur).
-  Masukan boleh **DOI, id/tautan OpenAlex (`W…`), atau JUDUL**.
-  Terukur pada `10.1145/3290605.3300233`: **2.257 pengutip** dan **35 rujukan**.
+- **Tool `paper_citations`** (upstream PR **#96**) — the OpenAlex citation graph,
+  free and keyless:
+  - `direction: "citing"` = papers that **cite** this work (forward
+    snowballing);
+  - `direction: "references"` = works **cited** by this paper (backward
+    snowballing).
+  Input may be a **DOI, an OpenAlex id/link (`W…`), or a TITLE**. Measured on
+  `10.1145/3290605.3300233`: **2,257 citing** and **35 references**.
 
-- **Tool `paper_oa`** (PR upstream #96) — salinan akses-terbuka lewat OpenAlex,
-  **tanpa perlu email Unpaywall**. Menyebut status (gold/green/hybrid/bronze/
-  closed), tautan PDF & laman tiap salinan, lisensi, dan versi.
-  Terukur: `10.1371/journal.pone.0266789` → **gold, 3 salinan** (cc-by,
-  publishedVersion); sedangkan paper ACM tertutup dijawab apa adanya
-  (`TIDAK AKSES TERBUKA`) beserta langkah berikutnya.
+- **Tool `paper_oa`** (upstream PR #96) — open-access copies through OpenAlex,
+  **without needing an Unpaywall email**. It states the status
+  (gold/green/hybrid/bronze/closed), the PDF & page links of each copy, the
+  license, and the version. Measured: `10.1371/journal.pone.0266789` → **gold, 3
+  copies** (cc-by, publishedVersion); while a closed ACM paper is answered as it
+  is (`NOT OPEN ACCESS`) along with the next steps.
 
-- **Jumlah sitasi ikut ditampilkan** di hasil `paper_search` bila sumbernya
-  melaporkannya (OpenAlex, Semantic Scholar). `null` berarti **tidak diketahui**
-  — dan dibedakan dari `0`.
+- **The citation count is also shown** in `paper_search` results when the source
+  reports it (OpenAlex, Semantic Scholar). `null` means **unknown** — and is
+  distinguished from `0`.
 
-### Catatan — yang diukur, dan yang SENGAJA TIDAK diklaim
+### Notes — what was measured, and what is DELIBERATELY NOT claimed
 
-- **Hasil ACM tidak ditandai "akses terbuka".** PR #123 menyebut ACM DL terbuka
-  sejak 1 Jan 2026, tetapi **diukur ulang di sini dan tidak mendukungnya**:
-  `HEAD https://dl.acm.org/doi/pdf/<doi 2026>` dijawab **HTTP 403**, dan hanya
-  **9 dari 20** ACM terbitan 2026 punya medan `license` di Crossref. Sumber yang
-  mengklaim OA tanpa bukti lebih buruk daripada yang tidak mengklaim.
-- **Kenapa DUA tool, bukan TIGA seperti upstream.** Setiap tool ikut dikirim
-  ulang ke model pada **setiap** permintaan. Dua arah sitasi berbagi satu skema
-  karena bentuk masukannya identik. Ini alasan yang sama yang membuat plugin ini
-  tidak memakai MCP bridge 57 tool milik PR #97.
-- **Pemilihan lewat JUDUL bisa salah.** Terukur: judul *"Attention is all you
-  need"* mengembalikan rekaman duplikat (`W2626778328`) ber-DOI aneh. Karena itu
-  keluaran **selalu** menyebut karya yang benar-benar dipakai, supaya salah pilih
-  terlihat.
+- **ACM results are not marked "open access".** PR #123 says ACM DL has been open
+  since 1 Jan 2026, but **re-measured here and it does not support that**:
+  `HEAD https://dl.acm.org/doi/pdf/<doi 2026>` answered **HTTP 403**, and only
+  **9 of 20** ACM 2026 publications have a `license` field in Crossref. A source
+  that claims OA without evidence is worse than one that does not claim it.
+- **Why TWO tools, not THREE like upstream.** Every tool is re-sent to the model
+  on **every** request. The two citation directions share one schema because
+  their input shape is identical. This is the same reason this plugin does not
+  use the 57-tool MCP bridge from PR #97.
+- **Selecting by TITLE can be wrong.** Measured: the title *"Attention is all you
+  need"* returned a duplicate record (`W2626778328`) with a strange DOI. That is
+  why the output **always** states which work was actually used, so a wrong pick
+  is visible.
 
 ### Fixed
 
-- **Judul diperlakukan sebagai DOI — bug di kode baru rilis ini, tertangkap
-  sebelum terbit.** `normDoi()` hanya membuang awalan URL lalu memeriksa panjang,
-  jadi ia menerima **hampir semua teks**; memakainya untuk memutuskan "ini DOI?"
-  membuat `"zzzqqqxxyy tidak mungkin ada"` dijawab *"DOI … tidak ditemukan"*
-  alih-alih dicari sebagai judul. Kini keputusannya memakai `apakahDoi()`, dan
-  `normDoi()` hanya dipakai **sesudah** lolos. Ada penjaga regresinya.
-- **HTTP 429 & 504 OpenAlex diterjemahkan.** Terukur 29 Sep 2026:
-  `works/doi:…` sempat dijawab **HTTP 504 "Gateway timeout"** (body JSON
-  `reason: query_timeout`). Sebelumnya pemakainya hanya melihat "HTTP 504";
-  sekarang pesannya menyebut bahwa itu **transien** dan cukup diulang. Yang 429
-  juga menyebut cara menaikkan batasnya.
-- **Uji plugin tidak lagi mati total saat jaringan gagal.** Satu `HTTP 504`
-  membuat skrip uji berhenti **sebelum ringkasan tercetak** — kegagalan transien
-  jadi tampak seperti kerusakan. Kini dibungkus, dan muncul sebagai **FAIL yang
-  bisa dibaca**. (Itu bug uji, bukan bug plugin.)
+- **A title treated as a DOI — a bug in this release's new code, caught before
+  release.** `normalizeDoi()` only stripped the URL prefix and then checked
+  length, so it accepted **almost any text**; using it to decide "is this a
+  DOI?" made `"zzzqqqxxyy cannot possibly exist"` answered as *"DOI … not
+  found"* instead of being searched as a title. The decision now uses `isDoi()`,
+  and `normalizeDoi()` is only used **after** it passes. There is a regression
+  guard for it.
+- **OpenAlex HTTP 429 & 504 are translated.** Measured 29 Sep 2026:
+  `works/doi:…` once answered **HTTP 504 "Gateway timeout"** (JSON body
+  `reason: query_timeout`). Previously the user only saw "HTTP 504"; now the
+  message states that it is **transient** and just needs retrying. The 429 one
+  also states how to raise the limit.
+- **The plugin test no longer dies outright when the network fails.** One
+  `HTTP 504` made the test script stop **before the summary was printed** — a
+  transient failure looked like a defect. It is now wrapped, and appears as a
+  **readable FAIL**. (That was a test bug, not a plugin bug.)
 
-### Diuji
+### Tested
 
-- `node test/uji-sumber.mjs` — **58/58 lulus** melawan API & halaman sungguhan,
-  **14 dari 17 sumber menjawab** (yang gagal dilaporkan apa adanya: OpenAlex 429
-  dan PubMed Central HTTP 500 — dua-duanya transien).
-- `node test/uji-plugin.mjs` — **46/46 lulus**; kedua tool baru dipanggil
-  sungguhan sampai mengembalikan data.
-- `node test/uji-di-dsh.mjs` — **26/26 lulus** di DSH **0.2.0-rc.1** sungguhan.
-  Saksi dari dalam harness mencatat `schemas=Array(4): paper_search,
+- `node test/test-sources.mjs` — **58/58 passed** against real APIs & pages,
+  **14 of 17 sources answered** (the failures are reported as they are: OpenAlex
+  429 and PubMed Central HTTP 500 — both transient).
+- `node test/test-plugin.mjs` — **46/46 passed**; both new tools were called for
+  real until they returned data.
+- `node test/test-in-dsh.mjs` — **26/26 passed** on a real DSH **0.2.0-rc.1**.
+  The witness from inside the harness recorded `schemas=Array(4): paper_search,
   paper_status, paper_citations, paper_oa`.
-- **~40 asersi regresi baru**: penjaga jumlah sumber, pemetaan Crossref yang
-  dibagi dua sumber, lima kasus `ringkasOA`, enam kasus `ringkasKarya`/
-  `apakahIdKarya`, dedup jumlah sitasi (`null` ≠ `0`), dan penjaga
-  "apakahDoi dipakai untuk memutuskan DOI".
+- **~40 new regression assertions**: a source-count guard, the Crossref mapping
+  shared by two sources, five `summarizeOA` cases, six `summarizeWork()`/
+  `isWorkId()` cases, citation-count dedup (`null` ≠ `0`), and a guard that
+  "`isDoi` is used to decide a DOI".
 
 ## [0.1.4] - 2026-09-28
 
-Empat perbaikan yang **dipelajari dari Issues & PR repo upstream
-`openags/paper-search-mcp`** — masing-masing menunjuk issue-nya, bukan dikarang.
+Four fixes **learned from Issues & PRs in the upstream repo
+`openags/paper-search-mcp`** — each cites its issue, none invented.
 
 ### Fixed
 
-- **PubMed & PMC diurutkan menurut TANGGAL, bukan relevansi** (upstream issue #29).
-  `esearch` tidak pernah diberi `sort`, dan bawaan PubMed adalah tanggal-terbaru.
-  Untuk kueri luas itu buruk: yang muncul paper baru yang tangensial, bukan paper
-  fondasional. Sekarang memakai `sort=relevance`.
+- **PubMed & PMC were sorted by DATE, not relevance** (upstream issue #29).
+  `esearch` was never given `sort`, and the PubMed default is newest-date. For
+  broad queries that is bad: what appears is new tangential papers, not
+  foundational ones. It now uses `sort=relevance`.
 
-  Terukur pada `"ocular microbiome"`: puncaknya berubah dari paper 2026 yang
-  tangensial menjadi *The Microbiome, Ocular Surface, and Corneal Disorders*
-  (2023) dan *The Ocular Microbiome in Stevens-Johnson Syndrome* (2021) — persis
-  seperti yang diprediksi issue itu.
+  Measured on `"ocular microbiome"`: the top changed from a tangential 2026 paper
+  to *The Microbiome, Ocular Surface, and Corneal Disorders* (2023) and *The
+  Ocular Microbiome in Stevens-Johnson Syndrome* (2021) — exactly as that issue
+  predicted.
 
-- **Nama penulis bisa terpecah PER HURUF** (upstream issue #109/#110/#112).
-  Konektor mengoper **string** ke medan bertipe daftar, lalu pemakainya
-  meng-`join` string itu — `"TAN, Kwan Hong"` menjadi
-  `"T; A; N; ,;  ; K; w; a; n; …"`. Ditambahkan `daftarPenulis()` yang menerima
-  string, array string, array objek (`{name}`, `{display_name}`,
-  `{given,family}`), bentuk bersarang OpenAlex (`{author:{display_name}}`), dan
-  medan yang hilang — **tidak pernah melempar**.
+- **Author names could be split PER CHARACTER** (upstream issue
+  #109/#110/#112). The connector passed a **string** into a list-typed field,
+  then the consumer `join`ed that string — `"TAN, Kwan Hong"` became
+  `"T; A; N; ,;  ; K; w; a; n; …"`. Added `authorList()`, which accepts a string,
+  an array of strings, an array of objects (`{name}`, `{display_name}`,
+  `{given,family}`), the nested OpenAlex shape (`{author:{display_name}}`), and
+  missing fields — and **never throws**.
 
-  `daftarPenulis()` **sengaja TIDAK memecah pada koma**: `"TAN, Kwan Hong"`
-  adalah SATU penulis. Hanya titik koma yang jadi pemisah. Konektor yang
-  sumbernya memang memakai daftar berpemisah koma (DOAJ `authorString`, IACR)
-  memecahnya lebih dulu, baru menormalkan.
+  `authorList()` **deliberately does NOT split on commas**: `"TAN, Kwan Hong"` is
+  ONE author. Only semicolons are separators. Connectors whose source really does
+  use a comma-separated list (DOAJ `authorString`, IACR) split it first, then
+  normalize.
 
-- **arXiv: kueri multi-kata kini presisi dulu, longgar sebagai cadangan**
-  (upstream issue #6/#101/#113). Bentuk `all:kata1 AND all:kata2` dipakai lebih
-  dulu; hanya kalau kosong, bentuk longgar dijalankan.
+- **arXiv: multi-word queries are now precise first, loose as a fallback**
+  (upstream issue #6/#101/#113). The form `all:word1 AND all:word2` is used
+  first; only if it is empty is the loose form run.
 
-  **Kenapa TIDAK sekadar meniru perbaikan upstream** yang mengutip frasa:
-  **diukur 28 Sep 2026** — untuk kueri Indonesia `"literasi digital"`, bentuk
-  terkutip dan bentuk AND sama-sama memberi **0 hasil**, sedangkan bentuk longgar
-  memberi **50**. arXiv adalah korpus berbahasa Inggris; mengutip membabi-buta
-  akan menghapus SELURUH hasil untuk topik non-Inggris. Jadi yang dipakai adalah
-  presisi-**dengan**-cadangan.
+  **Why NOT simply copy the upstream fix** that quotes the phrase: **measured 28
+  Sep 2026** — for the Indonesian query `"literasi digital"`, the quoted form and
+  the AND form both gave **0 results**, while the loose form gave **50**. arXiv
+  is an English-language corpus; quoting blindly would delete ALL results for
+  non-English topics. So what is used is precision-**with**-fallback.
 
-- **HTTP 406 arXiv kadang masih membawa Atom feed yang SAH** (upstream issue #121).
-  Sebelumnya 406 langsung dianggap gagal. Sekarang isi balasannya dicoba diurai
-  lebih dulu — issue itu melaporkan 406 dengan body 5250 byte berisi 2 entri sah.
-  Untuk itu `getText()` kini menyimpan `err.bodyPenuh` terpisah dari `err.body`
-  (yang tetap pendek untuk pesan galat).
+- **arXiv HTTP 406 sometimes still carries a VALID Atom feed** (upstream issue
+  #121). Previously a 406 was immediately treated as a failure. Now the response
+  body is parsed first — that issue reports a 406 with a 5,250-byte body
+  containing 2 valid entries. For that, `getText()` now stores `err.fullBody`
+  separately from `err.body` (which stays short for error messages).
 
 ### Added
 
-- **15 asersi regresi baru**: 9 bentuk penulis (termasuk kasus bug #109), 3 bentuk
-  kueri arXiv, penjaga `sort=relevance`, dan penjaga penyelamatan body 406.
+- **15 new regression assertions**: 9 author shapes (including the #109 bug
+  case), 3 arXiv query shapes, a `sort=relevance` guard, and a guard for the 406
+  body rescue.
 
-### Catatan — yang sudah ada dan TIDAK perlu diubah
+### Notes — already present, NO change needed
 
-Diperiksa terhadap issue upstream, dan ternyata sudah tertangani sejak 0.1.0:
-timeout 25 detik per permintaan (issue #55), pelaporan sumber tidak dikenal
-(issue #105), dedup lintas sumber (issue #33), dan prinsip pelaporan kegagalan
-alih-alih "0 hasil" (issue #100/#111).
+Checked against upstream issues, and it turns out these have been handled since
+0.1.0: a 25-second timeout per request (issue #55), unknown-source reporting
+(issue #105), cross-source dedup (issue #33), and the principle of reporting
+failures instead of "0 results" (issue #100/#111).
 
-**PR upstream #97** (`feat: DeepSeek Harness (dsh) integration`) memakai jalur
-**MCP bridge** yang mengekspos **57 tool** — persis rute yang kami buang karena
-biayanya **12.342 token per permintaan**. Plugin ini mendaftarkan **2 tool**.
-Jadi PR itu mengukuhkan keputusan kami, bukan mengubahnya.
+**Upstream PR #97** (`feat: DeepSeek Harness (dsh) integration`) uses the **MCP
+bridge** path that exposes **57 tools** — exactly the route we discarded because
+it costs **12,342 tokens per request**. This plugin registers **2 tools**. So
+that PR confirms our decision, it does not change it.
 
 ## [0.1.3] - 2026-09-28
 
 ### Fixed
 
-- **Portal Indonesia melaporkan GAGAL padahal hasilnya cuma KOSONG.** Ketiga
-  konektor Indonesia melempar `markup ... berubah` setiap kali penanda hasil tidak
-  ditemukan — termasuk saat portal itu **sah-sah saja menjawab nol hasil**. Itu
-  keliru dengan arah berlawanan dari prinsip paket ini: melaporkan kegagalan di
-  tempat yang seharusnya kosong sama menyesatkannya dengan menyembunyikan
-  kegagalan.
+- **Indonesian portals reported FAILED when the result was simply EMPTY.** All
+  three Indonesian connectors threw `markup ... changed` whenever the result
+  marker was not found — including when that portal **legitimately answers zero
+  results**. That is wrong in the opposite direction from this package's
+  principle: reporting a failure where it should be empty is as misleading as
+  hiding a failure.
 
-  Ketahuan dari **uji orkestrasi**, bukan dari uji unit: `Sinta` gagal untuk
-  `"literasi digital remaja"` padahal berhasil untuk `"pendidikan karakter"`.
-  Setelah halaman kosong dan halaman ber-hasil dibandingkan, ternyata ketiga
-  portal punya penanda nol-hasilnya sendiri:
+  Found from an **orchestration test**, not a unit test: `Sinta` failed for
+  `"literasi digital remaja"` while succeeding for `"pendidikan karakter"`.
+  After comparing the empty page and the page with results, it turned out all
+  three portals have their own zero-result marker:
 
-  | Portal | Penanda nol hasil | Halaman kosong |
+  | Portal | Zero-result marker | Empty page |
   |---|---|---|
-  | Garuda | `Found 0 documents` | 11.181 huruf |
-  | Sinta | header `Results for "<q>"` tetap ada, tautan profil nol | 34.063 huruf |
-  | IOS | `No Results!` | 23.041 huruf |
+  | Garuda | `Found 0 documents` | 11,181 characters |
+  | Sinta | the `Results for "<q>"` header stays, zero profile links | 34,063 characters |
+  | IOS | `No Results!` | 23,041 characters |
 
-  `portalNolHasil()` sekarang membedakan **tiga** kemungkinan — nol hasil (→ `[]`),
-  markup berubah (→ error), dan diblokir (→ error) — bukan dua.
+  `portalHasNoResults()` now distinguishes **three** possibilities — zero results
+  (→ `[]`), changed markup (→ error), and blocked (→ error) — not two.
 
-  Akibatnya untuk Sinta: kueri spesifik yang memang nol hasil tidak lagi tampak
-  seperti kerusakan. Sinta mendaftar **jurnal**, bukan artikel, jadi nol hasil itu
-  wajar dan sekarang dilaporkan sebagai nol.
+  The consequence for Sinta: a specific query that really has zero results no
+  longer looks like a defect. Sinta lists **journals**, not articles, so zero
+  results is reasonable and is now reported as zero.
 
 ### Added
 
-- 3 asersi regresi: kueri omong kosong ke ketiga portal Indonesia harus
-  menghasilkan **0 hasil tanpa error**.
+- 3 regression assertions: a nonsense query to all three Indonesian portals must
+  produce **0 results without an error**.
 
 ## [0.1.2] - 2026-09-28
 
 ### Fixed
 
-- **Judul Garuda masih bisa terduplikasi.** Perbaikan di rilis sebelumnya baru
-  menangani pengulangan **persis** (`X X X`). Setelah mengukur **50 judul
-  sungguhan** (5 kueri, diambil apa adanya dari halaman Garuda), ternyata ada
-  **empat** bentuk pengulangan, bukan satu:
+- **Garuda titles could still be duplicated.** The fix in the previous release
+  only handled **exact** repetition (`X X X`). After measuring **50 real titles**
+  (5 queries, taken as-is from Garuda pages), it turned out there are **four**
+  repetition shapes, not one:
 
-  | Bentuk | Contoh | Panjang |
+  | Shape | Example | Length |
   |---|---|---|
-  | A — periode persis | `X X X X X X` | 255 → 43 |
-  | B — diulang sesudah `": "` | `X: X` | 194 → 96 |
-  | C — awalan lalu `X: X` | `NLP, Machine Learning X: X` | 270 → 145 |
-  | D — frasa diulang di awal | `IMPLEMENTASI PENDIDIKAN KARAKTER IMPLEMENTASI …` | 306 → 295 |
+  | A — exact period | `X X X X X X` | 255 → 43 |
+  | B — repeated after `": "` | `X: X` | 194 → 96 |
+  | C — prefix then `X: X` | `NLP, Machine Learning X: X` | 270 → 145 |
+  | D — phrase repeated at the start | `IMPLEMENTASI PENDIDIKAN KARAKTER IMPLEMENTASI …` | 306 → 295 |
 
-  `runtuhkanPeriodik()` diganti **`runtuhkanJudul()`** yang menangani keempatnya,
-  termasuk pengulangan dengan **kapitalisasi berbeda** (252 → 125) — Garuda
-  memang sering mengulang judul dalam huruf besar lalu huruf kecil.
+  `collapsePeriodic()` was replaced by **`collapseTitle()`**, which handles all
+  four, including repetition with **different capitalization** (252 → 125) —
+  Garuda really does often repeat a title in uppercase then lowercase.
 
-  **Yang paling penting, dan inilah yang diuji:** judul **sah** berformat
-  `Judul: subjudul`, `Judul: (studi kasus)`, dan `Judul: kata kunci` **tidak**
-  ikut terpotong. Karena itu aturannya menuntut bagian sesudah `": "` benar-benar
-  **sama** dengan akhiran bagian sebelumnya — bukan sekadar ada titik dua. Pada
-  50 judul itu hasilnya: **14 diringkas, 36 dibiarkan, 0 cacat**, dan **15 judul
-  bertitik dua tetap utuh**.
+  **Most important, and this is what is tested:** **valid** titles in the form
+  `Title: subtitle`, `Title: (case study)`, and `Title: keywords` are **not**
+  truncated. That is why the rule requires the part after `": "` to be genuinely
+  **equal** to the tail of the previous part — not merely that a colon exists. On
+  those 50 titles the result was: **14 collapsed, 36 left alone, 0 broken**, and
+  **15 colon titles left intact**.
 
 ### Added
 
-- **11 asersi regresi baru** di `test/uji-sumber.mjs`, memakai teks yang diambil
-  apa adanya dari Garuda. Lima di antaranya justru menjaga agar judul **sah**
-  tidak terpotong — tanpa itu, aturannya bisa "lulus" hanya dengan memotong
-  setiap judul yang bertitik dua.
+- **11 new regression assertions** in `test/test-sources.mjs`, using text taken
+  as-is from Garuda. Five of them specifically guard that **valid** titles are
+  not truncated — without them, the rule could "pass" merely by cutting every
+  title that has a colon.
 
 ## [0.1.1] - 2026-09-28
 
 ### Fixed
 
-- **Plugin gagal dimuat sama sekali — perbaikan yang wajib.** DSH mewajibkan
-  setiap tool mendeklarasikan `output: { schema, render }`. Versi 0.1.0 tidak
-  punya itu, sehingga `ctx.tools.register` **melempar**:
+- **The plugin failed to load at all — a mandatory fix.** DSH requires every
+  tool to declare `output: { schema, render }`. Version 0.1.0 did not have that,
+  so `ctx.tools.register` **threw**:
 
   ```
   TypeError: tool "paper_search" must declare output { schema, render, presentationMeta? }
   ```
 
-  Karena lemparan itu terjadi di dalam `apply()`, **seluruh plugin batal
-  dimuat** — kedua tool **dan** skill-nya tidak pernah terdaftar. Pengguna 0.1.0
-  tidak akan melihat `paper_search` sama sekali.
+  Because that throw happened inside `apply()`, **the entire plugin was cancelled
+  from loading** — both tools **and** its skill were never registered. A 0.1.0
+  user would not see `paper_search` at all.
 
-  Ditemukan lewat **uji boot DSH sungguhan**, bukan lewat uji `ctx` tiruan:
-  `register` tiruan hanya menampung definisinya, jadi tidak pernah menegakkan
-  syarat ini. Inilah bukti bahwa tiruan tidak bisa menggantikan harness nyata.
+  Found through a **real DSH boot test**, not through a mock `ctx` test: a mock
+  `register` only stores the definition, so it never enforces this requirement.
+  This is the proof that a mock cannot replace the real harness.
 
-  **Kalau Anda memasang 0.1.0, naikkan ke 0.1.1.**
+  **If you installed 0.1.0, upgrade to 0.1.1.**
 
 ### Added
 
-- `test/uji-di-dsh.mjs` — **uji boot DSH sungguhan.** Menyalin profil `headless`
-  ke profil uji (profil `desktop` yang hidup **tidak disentuh**), menyisipkan
-  plugin ini plus satu **plugin saksi**, menjalankan DSH nyata, lalu memeriksa
-  dari DALAM bahwa: kedua tool terdaftar, provider skill terdaftar, skill
-  muncul di katalog, dan `paper_search` benar-benar dipanggil sampai
-  mengembalikan paper sungguhan. **22 asersi, 0 gagal.**
+- `test/test-in-dsh.mjs` — a **real DSH boot test.** It copies the `headless`
+  profile to a test profile (the live `desktop` profile is **not touched**),
+  inserts this plugin plus one **witness plugin**, runs a real DSH, then checks
+  from the INSIDE that: both tools are registered, the skill provider is
+  registered, the skill appears in the catalog, and `paper_search` is actually
+  called until it returns a real paper. **22 assertions, 0 failures.**
 
-  Uji ini juga mencatat dua jebakan yang sudah terukur, supaya tidak diulang:
-  tanpa `inject` service tidak terlihat dari plugin lain, dan pada detik ke-4
-  harness sudah membongkar pluginnya sehingga pemeriksaan **harus** berjalan di
-  dalam `apply()`.
+  This test also records two already-measured traps, so they are not repeated:
+  without `inject` the service is not visible from another plugin, and by the 4th
+  second the harness has already torn down its plugins so checks **must** run
+  inside `apply()`.
 
 ## [0.1.0] - 2026-09-28
 
-Rilis pertama.
+First release.
 
 ### Added
 
-- **Enam belas sumber lewat satu tool `paper_search`**, semuanya native HTTP:
-  - **tiga belas internasional** — Crossref, OpenAlex, DOAJ, Europe PMC, PubMed,
-    PubMed Central, arXiv, Semantic Scholar, CORE, Zenodo, HAL lewat REST API
-    JSON; IACR ePrint lewat penguraian HTML; Unpaywall lewat REST API dengan
-    **input DOI** (bukan kata kunci);
-  - **tiga portal Indonesia** lewat penguraian halaman publik — Garuda (artikel
-    jurnal), Sinta (daftar jurnal terakreditasi), IOS OneSearch (agregator
-    repositori).
-- **Sumber ber-input DOI ditandai di registry** (`input: 'doi'`). Saat pengguna
-  mencari dengan kata kunci, `unpaywall` **dilewati** — bukan dijalankan lalu
-  dilaporkan kosong — dan alasan pelewatan itu dicetak dalam keluaran. Saat
-  diminta eksplisit, ia tetap dijalankan dan mengembalikan kosong, karena
-  memang begitulah perilakunya.
-- **Dua sumber wajib kredensial**, masing-masing dilaporkan sebagai kegagalan
-  yang bisa ditindaklanjuti, bukan 429 yang membingungkan:
-  `core` butuh `CORE_API_KEY`; `unpaywall` butuh email.
-- **Dedup** berdasarkan DOI lalu judul yang dinormalkan; setiap hasil mencatat
-  **semua** sumber yang menemukannya, bukan menyembunyikan yang lain.
-- **Tool `paper_status`** — mengirim satu permintaan kecil ke tiap sumber dan
-  melaporkan mana yang benar-benar menjawab, plus kredensial mana yang terbaca
-  **beserta dari mana asalnya** (config plugin / variabel lingkungan /
-  `.env` milik CLI upstream).
-- **Registrasi skill `paper-search`** lewat `ctx.get('skills').registerProvider()`
-  di rank **450** — sengaja kalah dari berkas di `~/.dsh/skills` (rank 400)
-  supaya suntingan pengguna selalu menang. Dibaca ulang setiap kali, tidak
-  di-cache, jadi suntingan `SKILL.md` langsung terpakai tanpa restart.
-- **Pembatas laju arXiv sendiri** (1 permintaan / 3 detik) sesuai TOU mereka,
-  walau sumber lain dipanggil paralel.
+- **Sixteen sources through one `paper_search` tool**, all native HTTP:
+  - **thirteen international** — Crossref, OpenAlex, DOAJ, Europe PMC, PubMed,
+    PubMed Central, arXiv, Semantic Scholar, CORE, Zenodo, HAL through JSON REST
+    APIs; IACR ePrint through HTML parsing; Unpaywall through a REST API with
+    **DOI input** (not keywords);
+  - **three Indonesian portals** through public page parsing — Garuda (journal
+    articles), Sinta (accredited journal list), IOS OneSearch (repository
+    aggregator).
+- **DOI-input sources are flagged in the registry** (`input: 'doi'`). When the
+  user searches with keywords, `unpaywall` is **skipped** — not run and then
+  reported empty — and the reason for skipping is printed in the output. When
+  requested explicitly, it still runs and returns empty, because that is exactly
+  how it behaves.
+- **Two sources require credentials**, each reported as an actionable failure
+  rather than a confusing 429: `core` needs `CORE_API_KEY`; `unpaywall` needs an
+  email.
+- **Dedup** by DOI then normalized title; every result records **all** sources
+  that found it, rather than hiding the others.
+- **Tool `paper_status`** — sends one small request to each source and reports
+  which ones actually answer, plus which credentials were read **and where from**
+  (plugin config / environment variables / the upstream CLI's `.env`).
+- **Skill registration `paper-search`** through
+  `ctx.get('skills').registerProvider()` at rank **450** — deliberately losing to
+  files in `~/.dsh/skills` (rank 400) so user edits always win. Re-read every
+  time, not cached, so a `SKILL.md` edit takes effect immediately without a
+  restart.
+- **Its own arXiv rate limiter** (1 request / 3 seconds) per their TOU, even
+  though other sources are called in parallel.
 
 ### Fixed
 
-- Judul Garuda yang diulang oleh markup `<xmp>`-nya (terukur: judul 44 huruf
-  diulang ~6× menjadi 255 huruf) kini diringkas menjadi satu salinan. Aturannya
-  konservatif — hanya bila pengulangannya persis dari awal sampai akhir.
-- DOI dinormalkan tanpa awalan URL (`https://doi.org/...`) supaya dedup bekerja
-  lintas sumber.
+- Garuda titles repeated by its `<xmp>` markup (measured: a 44-character title
+  repeated ~6× to 255 characters) are now collapsed to a single copy. The rule is
+  conservative — only when the repetition is exact from start to end.
+- DOIs are normalized without the URL prefix (`https://doi.org/...`) so dedup
+  works across sources.
 
-### Catatan kejujuran
+### Honesty notes
 
-- **Sembilan sumber publik SENGAJA TIDAK didaftarkan**, masing-masing dengan
-  alasan yang diukur 28 Sep 2026 — bukan karena lupa:
+- **Nine public sources are DELIBERATELY NOT registered**, each for a reason
+  measured 28 Sep 2026 — not out of forgetfulness:
 
-  | Sumber | Alasan |
+  | Source | Reason |
   |---|---|
-  | `moraref` | hanya halaman pendarat, tanpa markup hasil (3.964 huruf) |
-  | `dblp` | API di balik proteksi bot — mengembalikan halaman "Making sure you're not a bot!", bukan JSON |
-  | `openaire` | permintaan uji **timeout 30 detik dan 40 detik** |
-  | `biorxiv` | API-nya berbasis **rentang tanggal**, bukan pencarian kata kunci |
-  | `medrxiv` | sama seperti `biorxiv` |
-  | `base` | OAuth/OAI-PMH menolak: `Access denied for IP address 182.8.249.89…` — butuh pendaftaran IP institusi |
-  | `citeseerx` | HTTP 404, lalu **menggantung** sampai permintaannya dibunuh |
-  | `ssrn` | menolak permintaan biasa dengan HTTP 403 |
-  | `google_scholar` | deteksi bot aktif, butuh proxy |
+  | `moraref` | landing page only, no result markup (3,964 characters) |
+  | `dblp` | API behind bot protection — returns a "Making sure you're not a bot!" page, not JSON |
+  | `openaire` | test requests **timed out at 30 seconds and 40 seconds** |
+  | `biorxiv` | its API is **date-range** based, not keyword search |
+  | `medrxiv` | same as `biorxiv` |
+  | `base` | OAuth/OAI-PMH refused: `Access denied for IP address 182.8.249.89…` — needs institutional IP registration |
+  | `citeseerx` | HTTP 404, then **hung** until the request was killed |
+  | `ssrn` | refuses ordinary requests with HTTP 403 |
+  | `google_scholar` | active bot detection, needs a proxy |
 
-  Sumber yang selalu kosong lebih buruk daripada sumber yang tidak ada, jadi
-  yang gagal dibuang **beserta alasannya** — bukan didaftarkan supaya jumlahnya
-  terlihat banyak. Deskripsi paket, README, SKILL.md, entri katalog, dan
-  `lib/index.js` semuanya menyebut angka yang sama, dan `lib/index.js` punya
-  penjaga yang memperingatkan bila jumlahnya berubah tanpa dokumen ikut
-  diperbarui.
-  > **`iacr` dan `unpaywall` SEMPAT masuk daftar ini lalu dikeluarkan** setelah
-  > diuji ulang: `iacr` menjawab HTTP 200 dengan hasil yang bisa diurai, dan
-  > `unpaywall` menjawab HTTP 200 dengan DOI. Menganggap "bukan pencari kata
-  > kunci" sebagai "mati" adalah kekeliruan yang sudah dikoreksi.
-- **Kegagalan sumber tidak pernah disamarkan sebagai kekosongan.** Setiap
-  non-2xx melempar error beserta status HTTP-nya, dan kedua tool memisahkan
-  baris `GAGAL` dari baris `OK`. Ini perbaikan langsung atas kelemahan yang
-  terukur pada tool sejenis: konektornya mengembalikan daftar kosong untuk
-  SETIAP status != 200 tanpa mencatat apa pun, sehingga permintaan yang kena
-  batas laju terbaca sebagai "literatur ini tidak ada".
-- **CORE adalah satu-satunya sumber yang WAJIB berkunci.** Terukur: tanpa
-  `Bearer` ia menjawab HTTP 429 dengan body **kosong** — bukan 401. Karena itu
-  kunci yang hilang dilaporkan sebagai pesan yang bisa ditindaklanjuti, bukan
-  dibiarkan menjadi 429 yang membingungkan.
-- Tidak ada kunci API maupun alamat email yang dibawa paket ini.
+  A source that is always empty is worse than a source that does not exist, so
+  the failures were dropped **along with their reasons** — not registered to make
+  the count look big. The package description, README, SKILL.md, catalog entry,
+  and `lib/index.js` all state the same number, and `lib/index.js` has a guard
+  that warns if the count changes without the docs being updated.
+  > **`iacr` and `unpaywall` WERE briefly on this list and then removed** after
+  > re-testing: `iacr` answered HTTP 200 with parseable results, and `unpaywall`
+  > answered HTTP 200 with a DOI. Treating "not a keyword searcher" as "dead" was
+  > a mistake that has been corrected.
+- **Source failures are never disguised as emptiness.** Every non-2xx throws an
+  error along with its HTTP status, and both tools separate `FAILED` lines from
+  `OK` lines. This is a direct fix for a weakness measured in a similar tool: its
+  connectors returned an empty list for EVERY status != 200 without recording
+  anything, so a rate-limited request read as "this literature does not exist".
+- **CORE is the only source that REQUIRES a key.** Measured: without `Bearer` it
+  answers HTTP 429 with an **empty** body — not 401. That is why a missing key is
+  reported as an actionable message, rather than being left as a confusing 429.
+- This package carries no API keys and no email addresses.
 
-### Diuji
+### Tested
 
-- `node test/uji-sumber.mjs` — **8/8 lulus** melawan API dan halaman SUNGGUHAN;
-  **15 dari 16 sumber menjawab**. Dua kegagalan transien terlihat dan
-  **dilaporkan apa adanya**, bukan disembunyikan sebagai "0 hasil":
-  Semantic Scholar sempat 429 karena pengujian beruntun (pulih setelah 150
-  detik), dan PubMed Central sempat HTTP 500 `error forwarding request`
-  (batas laju E-utilities; sebelumnya 3 hasil di jalan yang sama).
-- `node test/uji-plugin.mjs` — **29/29 lulus** dengan `ctx` tiruan: dua tool
-  terdaftar, provider skill mengembalikan rank 450, frontmatter terurai
-  (deskripsi 348 huruf, di bawah batas katalog 500), dan kedua tool benar-benar
-  memanggil jaringan.
+- `node test/test-sources.mjs` — **8/8 passed** against REAL APIs and pages; **15
+  of 16 sources answered**. Two transient failures were visible and **reported as
+  they are**, not hidden as "0 results": Semantic Scholar briefly answered 429
+  because of back-to-back testing (recovered after 150 seconds), and PubMed
+  Central briefly answered HTTP 500 `error forwarding request` (E-utilities rate
+  limit; previously 3 results on the same path).
+- `node test/test-plugin.mjs` — **29/29 passed** with a mock `ctx`: both tools
+  registered, the skill provider returned rank 450, the frontmatter parsed (348
+  character description, under the 500 catalog limit), and both tools actually
+  called the network.

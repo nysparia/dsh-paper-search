@@ -6,6 +6,19 @@ no external CLI, no Python package. Twenty-one of them need no credential at all
 Registered as the `paper-search` skill and five model tools (`paper_search`,
 `paper_status`, `paper_citations`, `paper_oa`, `paper_fulltext`).
 
+> **This is an English fork of `dsh-paper-search` 0.4.1 by
+> [Rasyid](https://github.com/rasyidmmz).** The upstream repository returns 404,
+> so the fork was seeded from the npm tarball. Every comment, identifier, and
+> user-facing string was translated from Indonesian to English, and several
+> measured bugs were fixed. See [NOTICE.md](./NOTICE.md) for the full list.
+>
+> **Breaking change:** model-facing tool parameters were renamed. `paksa_ulang`
+> is now `force_refresh`, `urutkan` is `sort`, `min_sitasi` is `min_citations`,
+> `jenis` is `kind`, `arah` is `direction`, `analisis` is `analysis`,
+> `bersihkan_cache` is `clear_cache`, `ambang_kuat` is `strong_threshold`,
+> `min_bersama_kuat` is `min_shared_strong`, `max_kandidat` is `max_candidates`.
+> The Indonesian names are not accepted as aliases.
+
 ## Sources
 
 **International (20)** — official JSON APIs, except IACR which is parsed HTML:
@@ -48,8 +61,8 @@ keywords, it is skipped rather than run and reported as an empty result — and
 the output says so:
 
 ```
-CATATAN: unpaywall dilewati karena query ini bukan DOI — sumber itu memang
-mencari dengan DOI, bukan kata kunci.
+NOTE: unpaywall skipped because this query is not a DOI — that source
+searches by DOI, not by keyword.
 ```
 
 Pass a DOI and it runs. Pass `sources: "unpaywall"` with keywords and it runs
@@ -86,7 +99,7 @@ listed in the table above instead: `ssrn` (via OpenAlex, 0.2.0), `biorxiv` and
 dsh plugin --profile <profile> add dsh-paper-search
 
 # or straight from the repository
-dsh plugin --profile <profile> add github:rasyidmmz/dsh-paper-search
+dsh plugin --profile <profile> add github:nysparia/dsh-paper-search
 ```
 
 The package ships a `dsh.bundle.patch`, so DSH installs its loader row
@@ -101,10 +114,10 @@ Restart DSH after installing.
 |---|---|---|
 | `tools` | `"five"` | `"five"` registers the five separate tools. `"one"` registers a **single** tool named `paper` with a `mode` parameter (`search` · `status` · `citations` · `oa` · `fulltext`). |
 | `anydocPath` / `markitdownPath` | auto-detected | Explicit path to the PDF→Markdown converter used by `paper_fulltext`. |
-| `folderTeksLengkap` | `~/.dsh/paper-search` | Where downloaded PDFs and converted Markdown are kept. |
+| `libraryRoot` | `~/.dsh/paper-search` | Where downloaded PDFs and converted Markdown are kept. |
 
 **Why `tools: "one"` exists.** Every tool definition is sent to the model on
-**every request**. Measured 29 Sep 2026 (`test/uji-satu-pintu.mjs`):
+**every request**. Measured 29 Sep 2026 (`test/test-single-door.mjs`):
 
 | | characters of JSON | ≈ tokens |
 |---|---|---|
@@ -134,10 +147,10 @@ paper_search({ query: "pendidikan karakter", sources: "indonesia" })
 paper_search({ query: "CRISPR", sources: "pubmed,europepmc,doaj", max_results: 10 })
 paper_search({ query: "digital literacy", open_access_only: true, year_from: 2020 })
 paper_search({ query: "eye tracking", sources: "acm" })           # ACM Digital Library only
-paper_status()                    # which sources answer right now
-paper_status({ probe: false })    # configuration only, no network
+paper_status()                    # configuration only, no network (default)
+paper_status({ probe: true, sources: "crossref,openalex" })  # also prove they answer
 paper_citations({ identifier: "10.1145/3290605.3300233" })                  # who cites it
-paper_citations({ identifier: "10.1145/3290605.3300233", arah: "rujukan" }) # what it cites
+paper_citations({ identifier: "10.1145/3290605.3300233", direction: "references" }) # what it cites
 paper_oa({ identifier: "10.1371/journal.pone.0266789" })                    # free copy?
 paper_fulltext({ identifier: "1706.03762" })                                # read the whole paper
 ```
@@ -151,8 +164,8 @@ international results that do not match the intent.
 Two tools use OpenAlex — free, no key, no email (upstream PR #96):
 
 - **`paper_citations`** walks the citation graph in either direction.
-  `arah: "pengutip"` (default) lists papers that **cite** the work — forward
-  snowballing; `arah: "rujukan"` lists the works it **cites** — backward
+  `direction: "citing"` (default) lists papers that **cite** the work — forward
+  snowballing; `direction: "references"` lists the works it **cites** — backward
   snowballing. The input may be a **DOI, an OpenAlex id (`W…`), or a title**.
 - **`paper_oa`** reports the open-access status (gold/green/hybrid/bronze/closed)
   and every OA copy with its PDF/landing link, licence, and version. It does not
@@ -183,7 +196,7 @@ not just its title and abstract. It accepts a DOI, an OpenAlex id (`W…`), an
 paper_fulltext({ identifier: "1706.03762" })                      # arXiv id
 paper_fulltext({ identifier: "10.1371/journal.pone.0266789" })    # OA DOI
 paper_fulltext({ identifier: "Attention Is All You Need" })       # title
-paper_fulltext({ identifier: "…", paksa_ulang: true })            # force re-download
+paper_fulltext({ identifier: "…", force_refresh: true })            # force re-download
 ```
 
 How it finds the PDF — **arXiv first**, which is upstream PR #124:
@@ -194,7 +207,7 @@ How it finds the PDF — **arXiv first**, which is upstream PR #124:
 3. Unpaywall, last, using the configured email.
 
 Then the PDF is saved next to its Markdown in `~/.dsh/paper-search/md/`
-(override with the `folderTeksLengkap` plugin option), converted **locally** by
+(override with the `libraryRoot` plugin option), converted **locally** by
 `anydoc` — fallback `markitdown` — and the tool returns the file paths, the
 source it used, and either the **whole text** (when ≤ 20,000 characters) or a
 preview plus the `read({ file_path, offset, limit })` call to continue with.
@@ -230,30 +243,39 @@ failure.
 
 ## Verification status
 
+> **Fork note.** The `test/` directory is **not** part of the published npm
+> tarball, so the suites named below are not in this repository — the numbers
+> are the upstream author's, carried over unchanged. What this fork *did*
+> verify, against the translated code, is listed in [NOTICE.md](./NOTICE.md):
+> every module loads, all five tools register with the renamed parameters, and
+> `paper_search` / `paper_oa` / `paper_citations` (both `list` and `map`) were
+> run against live APIs. The bug fixes were each confirmed with a before/after
+> comparison against the 0.4.1 baseline.
+
 Stated precisely, because "tested" on its own is not a useful claim:
 
 **Verified — the citation map, against live OpenAlex.** `paper({ mode: "citations",
-analisis: "peta" })` was run on a real seed: bibliographic coupling surfaced *Questioning
+analysis: "map" })` was run on a real seed: bibliographic coupling surfaced *Questioning
 the AI* (0.143), co-citation surfaced LIME's *"Why Should I Trust You?"* (cited alongside
 8 times), a 5-paper XAI cluster formed, and the top bridge was a genuine survey spanning
 7 clusters. **2 OpenAlex requests**, about 2 seconds. The pure math is covered offline by
-`node test/uji-peta-sitasi.mjs` — **42/42 assertions**, including two mutation self-tests
+`node test/test-citation-map.mjs` — **42/42 assertions**, including two mutation self-tests
 (raising the thresholds must actually split the clusters, or the guard is vacuous).
 
 **Verified — the search cache, with the network deliberately killed.** `node
-test/uji-cache-pencarian.mjs` — **34/34 assertions** with a faked clock. Live, through the
+test/test-cache-search.mjs` — **34/34 assertions** with a faked clock. Live, through the
 tool: a repeat search went from **3,062 ms to 0 ms** with the output saying so, and with
-the network switched off the cached search still answered while `paksa_ulang: true`
+the network switched off the cached search still answered while `force_refresh: true`
 correctly failed (proof it really bypasses the cache rather than silently using it).
 
-**Verified — the download guard, against a real PDF.** `node test/uji-teks-lengkap.mjs` —
+**Verified — the download guard, against a real PDF.** `node test/test-fulltext.mjs` —
 **43/43 assertions**, 27 of them new: four URLs that must be allowed, twelve that must be
 refused, three anti-over-blocking bounds, and five redirect scenarios including relative
 `Location` and an endless loop. Live, `paper_fulltext` fetched a real arXiv PDF and
 converted it to Markdown (39.8 KB) in 2 seconds, so the guard does not break the
 legitimate path.
 
-**Verified — the connectors, against live APIs and pages.** `node test/uji-sumber.mjs`
+**Verified — the connectors, against live APIs and pages.** `node test/test-sources.mjs`
 runs all twenty-three against the real services: **79/79 assertions, 1 skip**. On the last
 run **22 of 23 answered**; the one that did not was `ios` (IOS OneSearch) with a
 network-level `fetch failed`. That was **verified not to come from this release**: the
@@ -264,14 +286,14 @@ answered with real records too — `openreview` in 1.8 s (with DOIs recovered fr
 BibTeX, so its records merge with Crossref on deduplication), `ssrn` in 2.3 s, `ieee` in
 1.6 s, `biorxiv` in 1.0 s, `medrxiv` in 0.9 s, and `chemrxiv` in 0.5 s.
 
-**Verified — the wiring, against a mock Cordis context.** `node test/uji-plugin.mjs`,
+**Verified — the wiring, against a mock Cordis context.** `node test/test-plugin.mjs`,
 **62/62 assertions**: all five tools register, the new tools are actually called
 and return data, `paper_fulltext` downloads *and* converts a real paper with the
 resulting `.md` checked on disk, the skill provider reports rank 450, the
 frontmatter parses within the 500-character catalogue limit, and every tool
 declares the `output: { schema, render }` that DSH requires.
 
-**Verified — loading the bundle inside a live harness.** `node test/uji-di-dsh.mjs`
+**Verified — loading the bundle inside a live harness.** `node test/test-in-dsh.mjs`
 copies the `headless` profile to a throwaway test profile, inserts this plugin
 plus a witness plugin, boots a real DSH (0.2.0-rc.1), and checks **from inside**
 that all five tools are registered, the skill provider is registered, the skill
