@@ -58,7 +58,7 @@ Options:
 |---|---|
 | `query` | keywords (required) |
 | `sources` | `all` · `international` · `indonesia` · or comma-separated ids |
-| `max_results` | results **per source** (1-50, default 5) |
+| `max_results` | results **per source** (1-50, default 5). The reply lists at most **40** papers after dedup, however high this is set — the cap is on the merged list, not per source |
 | `open_access_only` | only open-access papers |
 | `year_from` | only years >= this value |
 | `sort` | `relevance` (default) · `citations` (most cited first) · `newest` — use `citations` to raise classic/foundational works to the top |

@@ -7,6 +7,112 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.2] - 2026-11-23
+
+A security and correctness audit of the whole codebase. Every item below was
+found by writing a test that failed, not by reading the code and guessing.
+
+### Security — SSRF guard bypassable through IPv6
+
+`isSafeUrl()` only recognised `::1`, `::`, `fc*` and `fe8*`–`feb*`. Every IPv6
+address that EMBEDS an IPv4 address went straight through, which is exactly how
+an attacker reaches loopback. Proven against a real local HTTP server:
+
+```
+http://127.0.0.1:PORT/secret.pdf          guard=BLOCK  not attempted
+http://[::ffff:127.0.0.1]:PORT/secret.pdf guard=SAFE   FETCHED HTTP 200
+http://[::ffff:7f00:1]:PORT/secret.pdf    guard=SAFE   FETCHED HTTP 200
+```
+
+The IPv6 branch now parses the address and unwraps every embedded-IPv4 form
+before deciding: IPv4-mapped (`::ffff:a.b.c.d` and the hex form), IPv4-compatible
+(`::a.b.c.d`), NAT64 (`64:ff9b::/96`), 6to4 (`2002::/16`) and Teredo
+(`2001:0::/32`, whose client address is bit-inverted). It also refuses
+loopback, unspecified, link-local, unique-local and multicast outright.
+28 cases verified, including that public addresses still pass.
+
+### Fixed — `paper_detail` batch returned papers in the wrong order
+
+`resolveWorks` groups identifiers by prefix and issues one request per group, so
+works came back grouped by TYPE rather than in the order asked for. Measured with
+a mocked API that returned the filter reversed: asking for `[A, B, C]` produced
+`[C, B, A]`. A numbered batch reply that does not match the caller's list is
+actively misleading — the reader matches "3." to their third identifier and gets
+a different paper. Each work is now placed back at the index of the identifier
+that produced it.
+
+### Fixed — `paper_search` query was injected into arXiv's query language
+
+`arxivMatch()` already stripped `"` and `\` from a TITLE (an earlier fix), but
+the SEARCH path did not. Measured: the query `Attention" OR all:"x` produced
+`search_query=all:Attention" OR all:"x` — a different search entirely, whose
+results would then be reported as the answer. The metacharacters (`" \ ( ) [ ]
+{ } :`) are now removed, bare `AND`/`OR`/`ANDNOT` are dropped as operators, and
+a query with nothing searchable left returns `null` so no request is sent.
+
+### Fixed — arXiv throttle had a race, violating the 1 req / 3 s TOU
+
+`arxivWait()` read `arxivLastRequest`, awaited the delay, then wrote the
+timestamp. Between the read and the write every other caller saw the same stale
+value and computed the same delay, so they all woke together. Measured with three
+concurrent searches, the gaps were **3003 ms, 0 ms, 69 ms, 2933 ms, 1 ms** — five
+violations in one batch, which is what gets an IP blocked. Replaced with a promise
+chain so the wait and the timestamp update happen in one critical section.
+Re-measured: 3001, 3003, 3004, 3003, 3002 ms.
+
+### Fixed — cache was LRU-by-insert, and TTL counted from insert
+
+`usedAt` was written only by `set()`, so:
+
+- the TTL counted from INSERT, not last use — an entry read every minute still
+  expired 30 minutes after it was stored;
+- `prune()` evicts by `usedAt`, so it evicted by insertion order while the
+  comment above it claimed "least-recently-used". A hot entry was thrown away
+  before a cold one.
+
+`get()` now refreshes `usedAt` (best-effort: a failed write must not turn a HIT
+into a MISS).
+
+### Fixed — `DOAJ_API_KEY` was read, passed, and then ignored
+
+The key was resolved from the credentials store and threaded all the way to
+`doaj()` — which never used it. Measured: the request with a key and the request
+without one were byte-identical, so the documented "raises DOAJ's hourly limit"
+never happened. DOAJ takes it as an `api_key` query parameter; now sent.
+
+### Fixed — User-Agent reported version 0.1 while the package was 0.6.1
+
+Hardcoded in both `lib/sources.js` and `lib/fulltext.js`. This matters beyond
+cosmetics: Crossref and OpenAlex route "polite pool" traffic by User-Agent, and a
+client reporting a version it is not running cannot be identified when it
+misbehaves. Both now read `package.json`.
+
+### Fixed — citation map under-reported its request count
+
+The seed lookup happens before `structureMap()` runs and costs one request, but
+the tally started at 0. Measured with a mocked API: 2 requests made, "1" reported.
+A cost fence that under-reports is worse than no fence, because the reader budgets
+against a wrong number. Now starts at 1.
+
+### Fixed — `paper_detail` silently dropped `identifier` when `identifiers` was also given
+
+`{ identifier: "10.9999/x", identifiers: [A, B] }` returned A and B and never
+mentioned that the third paper was thrown away — so the missing paper looked like
+"OpenAlex does not have it". The reply now states which input was ignored.
+
+### Fixed — the 40-paper display cap was undocumented
+
+`max_results` is PER SOURCE, but the reply lists at most 40 papers after dedup.
+Measured: `max_results: 50` returned 40 and said nothing about why. The cap is now
+a named constant and the reply states the count whenever it truncates.
+
+### Verified
+
+19/19 assertions in a consolidated suite covering every fix above, plus live
+regression of all six tools. OpenAlex rate-limited this machine partway through
+(HTTP 429, then ECONNRESET), so the OpenAlex-dependent paths were verified against
+a mocked API rather than live — that is stated here rather than glossed over.
+
 ## [0.6.1] - 2026-11-23
 
 ### Changed — `pmc` and `ios` are off by default

@@ -59,6 +59,16 @@ Changes in this fork, all of them either translation or bug fixes:
   and `paper_status` still reports all 23 so a default-off source cannot break
   silently.
 
+- **Security and correctness audit (0.6.2).** The SSRF guard in `lib/fulltext.js`
+  was bypassable through any IPv6 address that embeds an IPv4 address
+  (`::ffff:127.0.0.1`, `64:ff9b::`, `2002::/16`, Teredo) — proven against a real
+  local HTTP server. It now parses and unwraps those forms. Also fixed: batch
+  ordering in `paper_detail`, arXiv query injection in `paper_search`, a race in
+  the arXiv throttle that violated their 1 req / 3 s TOU, cache LRU/TTL semantics,
+  an ignored `DOAJ_API_KEY`, a hardcoded User-Agent version, an under-reported
+  request count in the citation map, a silently dropped `identifier`, and an
+  undocumented 40-paper display cap. See CHANGELOG 0.6.2 for the measurements.
+
 ## What this package is
 
 `dsh-paper-search` is an **independent implementation** for DeepSeek Harness. It
