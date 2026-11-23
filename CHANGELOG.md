@@ -24,10 +24,31 @@ records decompressed and attributed by `X-Credits-*` header): the billed
 were **consecutive**, and a single batch call would have answered them for
 2 credits. OpenAlex carries the same metadata for free.
 
-**The batch is the point.** `identifiers: [...]` costs **one request per
+**The batch is the point.** `identifiers: [...]` costs **two requests per
 identifier TYPE**, not per paper — measured: 4 identifiers spanning DOI, PMID
-and arXiv cost **3 requests**; 15 DOIs cost **1**. Duplicates are de-duplicated
-within a call (measured: the same DOI passed three ways → 1 request).
+and arXiv cost **6 requests**; 15 DOIs cost **2**. Duplicates are de-duplicated
+within a call (measured: the same DOI passed three ways → 2 requests).
+
+**Why two requests, not one — the retracted-work trap.** OpenAlex's list
+endpoint **silently omits retracted works** unless `is_retracted:true` is in the
+filter, and that flag is **AND**-ed with the identifier filter rather than
+OR-ed. Measured 23 Nov 2026 with one retracted and one normal DOI:
+
+| filter | returns |
+|---|---|
+| `doi:A\|B` | 1 work — the **normal** one |
+| `doi:A\|B,is_retracted:true` | 1 work — the **retracted** one |
+
+Neither request alone sees both, so the batch issues both and unions them.
+There are **91,863** retracted works in OpenAlex (measured the same day).
+Without the second request every one of them would have been reported as
+"not found in OpenAlex" — the worst possible error for this tool, because a
+retracted paper is exactly the paper a reader most needs to be warned about.
+The reply prints `⚠ RETRACTED` when the flag is set.
+
+This was found by testing the tool against a known-retracted paper
+(`10.1016/S0140-6736(20)31180-6`, the Lancet hydroxychloroquine study) rather
+than only against papers that were expected to work.
 
 **Identifier prefixes verified against the live API (23 Nov 2026):**
 

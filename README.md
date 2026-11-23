@@ -154,7 +154,7 @@ paper_search({ query: "eye tracking", sources: "acm" })           # ACM Digital 
 paper_status()                    # configuration only, no network (default)
 paper_status({ probe: true, sources: "crossref,openalex" })  # also prove they answer
 paper_detail({ identifier: "10.1145/3290605.3300233" })                     # metadata + abstract
-paper_detail({ identifiers: ["10.1145/…", "PMID:37074525", "1706.03762"] }) # BATCH: 1 request per id type
+paper_detail({ identifiers: ["10.1145/…", "PMID:37074525", "1706.03762"] }) # BATCH: 2 requests per id type
 paper_citations({ identifier: "10.1145/3290605.3300233" })                  # who cites it
 paper_citations({ identifier: "10.1145/3290605.3300233", direction: "references" }) # what it cites
 paper_oa({ identifier: "10.1371/journal.pone.0266789" })                    # free copy?
@@ -182,12 +182,28 @@ paper_detail({ identifiers: ["10.1145/…", "PMID:…", "1706.03762"] })   # BAT
 paper_detail({ identifiers: [...], abstract_chars: 300 })         # shorter abstracts
 ```
 
-**Why the batch matters.** One call costs **one request per identifier TYPE**,
-not per paper: 15 DOIs cost **1** request. The same lookup done one paper at a
-time is what made a billed Semantic Scholar detail tool the most expensive tool
-measured on this machine — 60 calls / 60 credits, 31% of all billed spend, and
-15 of those were consecutive calls that a single batch would have answered for
-2 credits.
+**Why the batch matters.** One call costs **two requests per identifier TYPE**,
+not one per paper: 15 DOIs cost **2** requests. The same lookup done one paper
+at a time is what made a billed Semantic Scholar detail tool the most expensive
+tool measured on this machine — 60 calls / 60 credits, 31% of all billed spend,
+and 15 of those were consecutive calls that a single batch would have answered
+for 2 credits.
+
+> **Why two requests and not one.** OpenAlex's list endpoint **silently omits
+> retracted works** unless `is_retracted:true` is in the filter, and that flag is
+> **AND**-ed with the identifier filter rather than OR-ed — so neither request
+> alone sees both kinds. Measured 23 Nov 2026 with one retracted and one normal
+> DOI:
+>
+> | filter | returns |
+> |---|---|
+> | `doi:A\|B` | 1 work — the **normal** one |
+> | `doi:A\|B,is_retracted:true` | 1 work — the **retracted** one |
+>
+> There are **91,863** retracted works in OpenAlex. Without the second request
+> every one of them would be reported as "not found" — the worst possible error
+> for this tool, because a retracted paper is exactly the paper a reader most
+> needs to be warned about. The reply prints `⚠ RETRACTED` when the flag is set.
 
 Accepted identifiers: DOI (`10.…`), `PMID:123`, `PMC123`, arXiv id
 (`1706.03762`), OpenAlex id (`W…`), or a **title**. A bare number is

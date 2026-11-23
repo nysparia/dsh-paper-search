@@ -173,11 +173,19 @@ paper_detail({ identifiers: ["10.1145/…", "PMID:…", "1706.03762"] })   # BAT
 paper_detail({ identifiers: [...], abstract_chars: 300 })        # shorter abstracts
 ```
 
-**Use the batch.** One call costs **one request per identifier TYPE**, not per
-paper — so 15 DOIs cost **1** request, not 15. This is the whole point of the
+**Use the batch.** One call costs **two requests per identifier TYPE**, not per
+paper — so 15 DOIs cost **2** requests, not 15. This is the whole point of the
 tool: the same lookup done one paper at a time is what made a billed
 Semantic Scholar detail tool the most expensive tool on this machine
 (60 calls / 60 credits, 31% of all billed spend, 15 of them consecutive).
+
+> **Why two requests.** OpenAlex's list endpoint **silently omits retracted
+> works** unless `is_retracted:true` is in the filter, and that flag is
+> **AND**-ed with the identifier filter rather than OR-ed — so neither request
+> alone sees both kinds. Measured: `doi:A|B` returns only the normal work,
+> `doi:A|B,is_retracted:true` returns only the retracted one. There are 91,863
+> retracted works in OpenAlex; without the second request every one of them
+> would be reported as "not found". The reply prints `⚠ RETRACTED` when set.
 
 Accepted identifiers: DOI (`10.…`), `PMID:123`, `PMC123`, arXiv id
 (`1706.03762`), OpenAlex id (`W…`), or a **title**.
