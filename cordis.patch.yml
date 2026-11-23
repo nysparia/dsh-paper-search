@@ -1,0 +1,17 @@
+# Patch bundle dsh-paper-search.
+#
+# Bentuk ini DISALIN dari bundle yang sudah terbukti terpasang di profil
+# (`dsh-ai-memory/cordis.patch.yml`) — bukan dikarang:
+#
+#     - insert:
+#         - id: <id>
+#           name: <nama paket npm>
+#
+# `id` harus UNIK. Loader melempar `duplicate loader entry id` bila id yang sama
+# muncul dua kali, dan itu terjadi SEBELUM aplikasi sempat memperingatkan.
+#
+# `path` TIDAK ditulis di sini: entri `insert` hanya menyebut nama paket, dan DSH
+# menyelesaikan berkas masuknya dari `main`/`exports` package.json paket.
+- insert:
+    - id: paper-search
+      name: dsh-paper-search

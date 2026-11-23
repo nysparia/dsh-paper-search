@@ -1,0 +1,50 @@
+{
+  "name": "dsh-paper-search",
+  "version": "0.4.1",
+  "description": "Literature search for DeepSeek Harness: twenty international sources (Crossref, ACM Digital Library, IEEE, OpenAlex, DOAJ, Europe PMC, PubMed, PubMed Central, arXiv, bioRxiv, medRxiv, ChemRxiv, Semantic Scholar, CORE, Zenodo, HAL, IACR ePrint, OpenReview, SSRN, Unpaywall) and three Indonesian journal portals (Garuda, Sinta, IOS OneSearch), all native HTTP with no external CLI required. Adds result filtering (minimum citations, work type) and sorting (most cited first) for literature reviews, plus source health, citation graphs, open-access lookup, and full text: open-access PDFs are downloaded (arXiv first) and converted to Markdown so an agent can read the whole paper.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js"
+  },
+  "files": [
+    "lib/",
+    "skills/",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "NOTICE.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rasyidmmz/dsh-paper-search.git"
+  },
+  "homepage": "https://github.com/rasyidmmz/dsh-paper-search#readme",
+  "bugs": {
+    "url": "https://github.com/rasyidmmz/dsh-paper-search/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "paper-search",
+    "literature-search",
+    "academic",
+    "journal",
+    "crossref",
+    "openalex",
+    "doaj",
+    "pubmed",
+    "arxiv",
+    "garuda",
+    "sinta"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
