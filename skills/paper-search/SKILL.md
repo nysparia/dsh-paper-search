@@ -1,31 +1,32 @@
 ---
 name: paper-search
-description: "Search scientific literature from 20 international sources (Crossref, ACM, IEEE, OpenAlex, DOAJ, PubMed, arXiv, bioRxiv, medRxiv, ChemRxiv, OpenReview, SSRN, etc.) and 3 Indonesian journal portals (Garuda, Sinta, IOS). Plus paper_citations (who cites whom), paper_oa (free copies), and paper_fulltext (open-access PDF -> Markdown, so the content can be read in full). Use it to find papers, prior research, Indonesian literature, and to read the content of a paper."
-whenToUse: "When the task involves scholarly articles or works: finding papers/journals/research articles, finding prior research, finding Indonesian national journals, finding international journals, tracking down a DOI, finding a free copy of a paper, tracing who cites a paper, or when a literature search comes back empty and you need to know which sources failed. Not for news, docs, or general web research — that is the job of search-cascade."
+description: "Search scientific literature from 20 international sources (Crossref, ACM, IEEE, OpenAlex, DOAJ, PubMed, arXiv, bioRxiv, medRxiv, ChemRxiv, OpenReview, SSRN, etc.) and 3 Indonesian journal portals (Garuda, Sinta, IOS). Plus paper_detail (metadata + abstract, one or many at once), paper_citations (who cites whom), paper_oa (free copies), and paper_fulltext (open-access PDF -> Markdown). Use it to find papers, prior research, Indonesian literature, and to read a paper."
+whenToUse: "When the task involves scholarly articles or works: finding papers/journals/research articles, finding prior research, finding Indonesian national journals, tracking down a DOI, reading a paper's abstract or metadata, finding a free copy of a paper, tracing who cites a paper, or when a literature search comes back empty and you need to know which sources failed. Not for news, docs, or general web research — that is the job of search-cascade."
 ---
 
 # Paper Search — international literature + Indonesian journals (DSH)
 
-**Five capabilities**, all native over HTTP — no CLI or Python package
+**Six capabilities**, all native over HTTP — no CLI or Python package
 needs to be installed:
 
 | Capability | Single-entry equivalent | Purpose |
 |---|---|---|
 | `paper_search` | `paper({ mode: "search" })` | search literature across **23 sources** at once |
 | `paper_status` | `paper({ mode: "status" })` | which sources are actually **alive right now** + which converters exist |
+| `paper_detail` | `paper({ mode: "detail" })` | **metadata + abstract** for one paper or many at once (free, OpenAlex) |
 | `paper_citations` | `paper({ mode: "citations" })` | OpenAlex **citation graph** — who cites, and cites whom |
 | `paper_oa` | `paper({ mode: "oa" })` | **open-access copy** of a paper (status + PDF link) |
 | `paper_fulltext` | `paper({ mode: "fulltext" })` | **download open-access PDF → Markdown**, so the paper's CONTENT can be read in full |
 
 > **The tool shape depends on the profile config — check your tool list first.**
-> Default = five separate tools (left column; plugin ≤ 0.1.7 is always like this). If
+> Default = six separate tools (left column; plugin ≤ 0.1.7 is always like this). If
 > the profile installs `tools: "one"` (since 0.1.8), there is only **one** tool `paper` +
 > a `mode` parameter — use the right column. In that mode names like `paper_fulltext`
 > **do not exist**, and calling them will be rejected by the harness.
 
 ## How to use
 
-The **default** shape (five tools):
+The **default** shape (six tools):
 
 ```
 paper_search({ query: "machine learning" })                      # all sources
@@ -33,6 +34,8 @@ paper_search({ query: "pendidikan karakter", sources: "indonesia" })
 paper_search({ query: "CRISPR", sources: "pubmed,europepmc,doaj", max_results: 10 })
 paper_search({ query: "digital literacy", open_access_only: true, year_from: 2020 })
 paper_search({ query: "eye tracking", sources: "acm" })           # ACM only
+paper_detail({ identifier: "10.1145/3290605.3300233" })           # metadata + abstract
+paper_detail({ identifiers: ["10.1145/…", "PMID:37074525", "1706.03762"] })  # BATCH
 paper_citations({ identifier: "10.1145/3290605.3300233" })                  # who cites
 paper_citations({ identifier: "10.1145/3290605.3300233", direction: "references" }) # cites whom
 paper_oa({ identifier: "10.1371/journal.pone.0266789" })                    # is there a free copy?
@@ -43,6 +46,7 @@ The **single-entry** shape (`tools: "one"`) — same content, only the names dif
 ```
 paper({ mode: "search", query: "machine learning" })
 paper({ mode: "status" })
+paper({ mode: "detail", identifiers: ["10.1145/…", "PMID:37074525"] })
 paper({ mode: "citations", identifier: "10.1145/3290605.3300233", direction: "citing" })
 paper({ mode: "oa", identifier: "10.1371/journal.pone.0266789" })
 paper({ mode: "fulltext", identifier: "1706.03762" })
@@ -157,6 +161,43 @@ paper_status({ probe: true, sources: "crossref,openalex" })  # also prove they a
 Its output names: which credentials were read **and where they came from**
 (plugin config / environment variables / the upstream CLI's `.env`), plus the live
 status of each source. This is the first answer to the question *"why is it empty?"*.
+
+## Paper detail — metadata + abstract (OpenAlex, free)
+
+```
+paper_detail({ identifier: "10.1145/3290605.3300233" })
+paper_detail({ identifier: "PMID:37074525" })
+paper_detail({ identifier: "1706.03762" })                       # arXiv id
+paper_detail({ identifier: "Attention Is All You Need" })        # title
+paper_detail({ identifiers: ["10.1145/…", "PMID:…", "1706.03762"] })   # BATCH
+paper_detail({ identifiers: [...], abstract_chars: 300 })        # shorter abstracts
+```
+
+**Use the batch.** One call costs **one request per identifier TYPE**, not per
+paper — so 15 DOIs cost **1** request, not 15. This is the whole point of the
+tool: the same lookup done one paper at a time is what made a billed
+Semantic Scholar detail tool the most expensive tool on this machine
+(60 calls / 60 credits, 31% of all billed spend, 15 of them consecutive).
+
+Accepted identifiers: DOI (`10.…`), `PMID:123`, `PMC123`, arXiv id
+(`1706.03762`), OpenAlex id (`W…`), or a **title**.
+
+What comes back: title, authors **with institutions and corresponding flag**,
+year/date, venue, publisher, citation count, **FWCI** and **field percentile**,
+**retraction flag**, volume/issue/pages, reference count, topics, keywords,
+open-access copies with licenses, and the **full abstract**.
+
+> **What OpenAlex does NOT have** — use the Semantic Scholar tools for these:
+> the S2 `paperId`/`corpusId`, **citation contexts** (the sentence that cites),
+> **citation intents** (background/method/result), and SPECTER2 embeddings.
+
+> **A TITLE can resolve to the wrong record.** OpenAlex holds duplicates —
+> measured: the title *"Attention is all you need"* returns `W2626778328`, a
+> duplicate with an arXiv DOI rather than the NeurIPS record. The output always
+> names the work actually used, so **check it first**; a DOI is safer.
+
+> **"Not found in OpenAlex" does not mean the paper does not exist.** The output
+> lists exactly which inputs were missing, and says so.
 
 ## Citation graph & free copies (OpenAlex)
 

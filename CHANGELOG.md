@@ -2,9 +2,64 @@
 
 > **Fork note (fork-specific).** This fork translates the codebase — identifiers,
 > tool parameters, and docs — from Indonesian to English, and carries the behavior
-> fixes listed under 0.5.0. Entries below 0.5.0 are the upstream author's, carried
-> over unchanged apart from the translation; their versions, dates, source ids,
-> tool names, and measurements are untouched.
+> fixes listed under 0.5.0 plus the `paper_detail` tool added in 0.6.0. Entries
+> below 0.5.0 are the upstream author's, carried over unchanged apart from the
+> translation; their versions, dates, source ids, tool names, and measurements
+> are untouched.
+
+## [0.6.0] - 2026-11-23
+
+### Added — `paper_detail` (free metadata + abstract, single or batch)
+
+A sixth tool, backed by OpenAlex. It returns title, authors **with institutions
+and the corresponding flag**, year/date, venue, publisher, citation count,
+**FWCI**, **field percentile**, **retraction flag**, volume/issue/pages,
+reference count, topics, keywords, open-access copies with licences, and the
+**full abstract**.
+
+**Why it exists.** Measured across 23 sessions on this machine (417,023 session
+records decompressed and attributed by `X-Credits-*` header): the billed
+`get_semantic_paper_detail` was the single most expensive tool in use —
+**60 calls / 60 credits, 31% of all billed spend**. Worse, 15 of those calls
+were **consecutive**, and a single batch call would have answered them for
+2 credits. OpenAlex carries the same metadata for free.
+
+**The batch is the point.** `identifiers: [...]` costs **one request per
+identifier TYPE**, not per paper — measured: 4 identifiers spanning DOI, PMID
+and arXiv cost **3 requests**; 15 DOIs cost **1**. Duplicates are de-duplicated
+within a call (measured: the same DOI passed three ways → 1 request).
+
+**Identifier prefixes verified against the live API (23 Nov 2026):**
+
+| Filter | Result |
+|---|---|
+| `doi:10.3390/info15060294\|10.1038/…` | 200, 2 works |
+| `pmid:37074525\|36568739` | 200, 2 works |
+| `pmcid:PMC8371605\|PMC10113978` | 200, 2 works |
+| `arxiv:1706.03762\|2106.12345` | 200, 2 works |
+| `openalex_id:W3177828909\|W4398222754` | 200, 2 works |
+
+**Mixing prefixes in one filter is rejected by OpenAlex** (HTTP 400, "trying to
+do an OR query between filters", measured 23 Nov 2026), so a mixed batch is
+split into one request per prefix. That is why the request count is reported in
+the reply rather than assumed.
+
+**A bare number is deliberately NOT guessed as a PMID.** It is far more likely a
+year or a typo, and `pmid:2024` would silently return the wrong paper.
+
+**What OpenAlex does not have, stated in the tool description so the model does
+not over-trust it:** the S2 `paperId`/`corpusId`, citation **contexts** (the
+sentence that cites), citation **intents**, and SPECTER2 embeddings. A caller
+that needs to chain into another Semantic Scholar tool must still resolve the
+paper there.
+
+**"Not found" is reported per input**, not as a silently shorter list — the
+reply names exactly which identifiers OpenAlex had no record for, and says that
+this does not mean the paper does not exist.
+
+Schema cost, measured: `tools: "five"` went from 8,225 to **10,050** characters
+(~2,056 → ~2,513 tokens); `tools: "one"` from 4,088 to **4,646** (~1,022 →
+~1,162).
 
 ## [0.5.0] - 2026-11-23
 

@@ -41,6 +41,14 @@ Changes in this fork, all of them either translation or bug fixes:
   sources cacheable.
 - **Stale guard message fixed.** The source-count guard said "not 19" while the
   registry has 23 sources.
+- **`paper_detail` added (0.6.0).** A sixth tool backed by OpenAlex: metadata +
+  abstract for one paper or many at once, free and keyless. It exists because
+  the billed `get_semantic_paper_detail` was measured as the most expensive tool
+  on the machine that prompted this fork — 60 calls / 60 credits, 31% of all
+  billed spend, 15 of them consecutive calls that one batch would have answered
+  for 2 credits. The batch costs one request per identifier TYPE, not per paper.
+  This is an **addition**, not a translation or a fix, and it is the only change
+  in this fork that adds a capability upstream never had.
 
 ## What this package is
 

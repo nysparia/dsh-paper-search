@@ -3,8 +3,8 @@
 Literature search for **DeepSeek Harness**: twenty-three sources, all native HTTP —
 no external CLI, no Python package. Twenty-one of them need no credential at all.
 
-Registered as the `paper-search` skill and five model tools (`paper_search`,
-`paper_status`, `paper_citations`, `paper_oa`, `paper_fulltext`).
+Registered as the `paper-search` skill and six model tools (`paper_search`,
+`paper_status`, `paper_detail`, `paper_citations`, `paper_oa`, `paper_fulltext`).
 
 > **This is an English fork of `dsh-paper-search` 0.4.1 by
 > [Rasyid](https://github.com/rasyidmmz).** The upstream repository returns 404,
@@ -112,18 +112,22 @@ Restart DSH after installing.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `tools` | `"five"` | `"five"` registers the five separate tools. `"one"` registers a **single** tool named `paper` with a `mode` parameter (`search` · `status` · `citations` · `oa` · `fulltext`). |
+| `tools` | `"five"` | `"five"` registers the six separate tools. `"one"` registers a **single** tool named `paper` with a `mode` parameter (`search` · `status` · `detail` · `citations` · `oa` · `fulltext`). |
 | `anydocPath` / `markitdownPath` | auto-detected | Explicit path to the PDF→Markdown converter used by `paper_fulltext`. |
 | `libraryRoot` | `~/.dsh/paper-search` | Where downloaded PDFs and converted Markdown are kept. |
 
 **Why `tools: "one"` exists.** Every tool definition is sent to the model on
-**every request**. Measured 29 Sep 2026 (`test/test-single-door.mjs`):
+**every request**. Measured 23 Nov 2026, after `paper_detail` was added:
 
 | | characters of JSON | ≈ tokens |
 |---|---|---|
-| `"five"` (default) | 4,959 | ~1,240 |
-| `"one"` | 2,159 | ~540 |
-| **saved** | **56%** | ~700 per request |
+| `"five"` (default) | 10,050 | ~2,513 |
+| `"one"` | 4,646 | ~1,162 |
+| **saved** | **54%** | ~1,350 per request |
+
+(For reference, the same measurement before `paper_detail` existed was 8,225
+characters / ~2,056 tokens for `"five"` and 4,088 / ~1,022 for `"one"` — so the
+new tool costs ~450 tokens in the default shape and ~140 in single-door mode.)
 
 **What it costs, stated plainly.** Tool names stop describing themselves
 (`paper_fulltext` no longer exists as a name; it becomes
@@ -149,6 +153,8 @@ paper_search({ query: "digital literacy", open_access_only: true, year_from: 202
 paper_search({ query: "eye tracking", sources: "acm" })           # ACM Digital Library only
 paper_status()                    # configuration only, no network (default)
 paper_status({ probe: true, sources: "crossref,openalex" })  # also prove they answer
+paper_detail({ identifier: "10.1145/3290605.3300233" })                     # metadata + abstract
+paper_detail({ identifiers: ["10.1145/…", "PMID:37074525", "1706.03762"] }) # BATCH: 1 request per id type
 paper_citations({ identifier: "10.1145/3290605.3300233" })                  # who cites it
 paper_citations({ identifier: "10.1145/3290605.3300233", direction: "references" }) # what it cites
 paper_oa({ identifier: "10.1371/journal.pone.0266789" })                    # free copy?
@@ -158,6 +164,44 @@ paper_fulltext({ identifier: "1706.03762" })                                # re
 For Indonesian topics, **use Indonesian keywords**: `"pendidikan karakter"`
 returns real Indonesian journals, while the English equivalent returns
 international results that do not match the intent.
+
+## Paper detail — metadata + abstract (OpenAlex, free)
+
+`paper_detail` returns everything a reader needs about a paper without opening
+it: title, authors **with institutions and the corresponding flag**, year/date,
+venue, publisher, citation count, **FWCI** and **field percentile**, **retraction
+flag**, volume/issue/pages, reference count, topics, keywords, open-access
+copies with licences, and the **full abstract**.
+
+```
+paper_detail({ identifier: "10.1145/3290605.3300233" })
+paper_detail({ identifier: "PMID:37074525" })
+paper_detail({ identifier: "1706.03762" })                        # arXiv id
+paper_detail({ identifier: "Attention Is All You Need" })         # title
+paper_detail({ identifiers: ["10.1145/…", "PMID:…", "1706.03762"] })   # BATCH
+paper_detail({ identifiers: [...], abstract_chars: 300 })         # shorter abstracts
+```
+
+**Why the batch matters.** One call costs **one request per identifier TYPE**,
+not per paper: 15 DOIs cost **1** request. The same lookup done one paper at a
+time is what made a billed Semantic Scholar detail tool the most expensive tool
+measured on this machine — 60 calls / 60 credits, 31% of all billed spend, and
+15 of those were consecutive calls that a single batch would have answered for
+2 credits.
+
+Accepted identifiers: DOI (`10.…`), `PMID:123`, `PMC123`, arXiv id
+(`1706.03762`), OpenAlex id (`W…`), or a **title**. A bare number is
+deliberately **not** guessed as a PMID — it is far more likely a year or a typo,
+and `pmid:2024` would silently return the wrong paper.
+
+> **What OpenAlex does NOT have** — use the Semantic Scholar tools for these:
+> the S2 `paperId`/`corpusId`, **citation contexts** (the sentence that cites),
+> **citation intents** (background/method/result), and SPECTER2 embeddings.
+> Everything else is here.
+
+> **"Not found in OpenAlex" does not mean the paper does not exist.** The output
+> lists exactly which inputs were missing rather than silently returning a
+> shorter list.
 
 ## Citation graph and open-access lookup
 
@@ -245,12 +289,14 @@ failure.
 
 > **Fork note.** The `test/` directory is **not** part of the published npm
 > tarball, so the suites named below are not in this repository — the numbers
-> are the upstream author's, carried over unchanged. What this fork *did*
-> verify, against the translated code, is listed in [NOTICE.md](./NOTICE.md):
-> every module loads, all five tools register with the renamed parameters, and
-> `paper_search` / `paper_oa` / `paper_citations` (both `list` and `map`) were
-> run against live APIs. The bug fixes were each confirmed with a before/after
-> comparison against the 0.4.1 baseline.
+> are the upstream author's, carried over unchanged, and they describe the
+> **five-tool** 0.4.1 code, not this fork. What this fork *did* verify, against
+> the translated code, is listed in [NOTICE.md](./NOTICE.md): every module
+> loads, all six tools register with the renamed parameters, and
+> `paper_search` / `paper_detail` (single and batch) / `paper_oa` /
+> `paper_citations` (both `list` and `map`) were run against live APIs. The bug
+> fixes were each confirmed with a before/after comparison against the 0.4.1
+> baseline.
 
 Stated precisely, because "tested" on its own is not a useful claim:
 
