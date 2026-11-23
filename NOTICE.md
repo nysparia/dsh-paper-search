@@ -78,6 +78,13 @@ Changes in this fork, all of them either translation or bug fixes:
   did not list the key, and the shared options object would have leaked an
   OpenAlex key to Semantic Scholar as `x-api-key`.
 
+- **Second audit pass (0.6.4).** Two more IPv6 forms bypassed the SSRF guard
+  (`::ffff:0:a.b.c.d` and NAT64 local-use `64:ff9b:1::/48`). Also fixed: `null`
+  printed as `0` for citation counts, FWCI and reference counts in three places;
+  `open_access_only` dropping results with no explanation; an empty result hiding
+  the fact that sources had answered; and `year_from` silently keeping works with
+  no reported year. See CHANGELOG 0.6.4.
+
 ## What this package is
 
 `dsh-paper-search` is an **independent implementation** for DeepSeek Harness. It

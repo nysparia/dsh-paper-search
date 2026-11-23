@@ -1,6 +1,6 @@
 {
   "name": "dsh-paper-search",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Literature search for DeepSeek Harness: twenty international sources (Crossref, ACM Digital Library, IEEE, OpenAlex, DOAJ, Europe PMC, PubMed, PubMed Central, arXiv, bioRxiv, medRxiv, ChemRxiv, Semantic Scholar, CORE, Zenodo, HAL, IACR ePrint, OpenReview, SSRN, Unpaywall) and three Indonesian journal portals (Garuda, Sinta, IOS OneSearch), all native HTTP with no external CLI required. A bare search runs 21 of the 23 registered sources (pmc and ios are off by default). Adds result filtering (minimum citations, work kind) and sorting (most cited first) for literature reviews, plus source health, single-or-batch paper detail (metadata + abstract, free via OpenAlex), citation graphs, open-access lookup, and full text: open-access PDFs are downloaded (arXiv first) and converted to Markdown so an agent can read the whole paper.",
   "license": "MIT",
   "type": "module",

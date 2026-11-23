@@ -7,6 +7,69 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.4] - 2026-11-23
+
+A second audit pass, aimed at the places the first one did not reach. Every item
+was found by a test that failed.
+
+### Security — two more IPv6 forms bypassed the SSRF guard
+
+The 0.6.2 fix covered IPv4-mapped, IPv4-compatible, NAT64 `64:ff9b::/96`, 6to4
+and Teredo. Two more forms embed an IPv4 address and were still reported SAFE:
+
+| form | example | now |
+|---|---|---|
+| IPv4-translated (RFC 2765) | `::ffff:0:127.0.0.1` | BLOCK |
+| NAT64 local-use (RFC 8215) | `64:ff9b:1::127.0.0.1` | BLOCK |
+
+Neither connected on this machine (`UND_ERR_SOCKET`), but a guard must not depend
+on the local network stack refusing something. Public addresses in the same forms
+still pass.
+
+### Fixed — `null` was printed as `0` in three places
+
+`Number(null)` is `0` and `Number.isFinite(0)` is `true`, so the obvious
+`Number.isFinite(Number(x))` guard turns "the source did not report a count" into
+"zero". Measured: a work with `cited_by_count: null` printed **"cited 0 times"** —
+a claim the data does not support.
+
+Fixed in `detailOfWork` (`citedBy`, `fwci`, `percentile`, `referenceCount`) and in
+`closenessToSeed` (`citedBy`). A real `0` still prints as `0`; only the unknown
+case changed. `lib/sources.js` gained a local `workNumber()` because it
+deliberately imports nothing from `index.js`.
+
+### Fixed — `open_access_only` dropped results with no explanation
+
+`makePaper` coerces a missing OA flag to `false`, so the filter drops works whose
+source cannot report OA at all — Crossref, ACM, IEEE and PubMed never do.
+Measured: `sources: "crossref", open_access_only: true` reported **"1 results"**
+from Crossref and then listed **0 papers**, with nothing explaining the gap.
+
+The reply now states how many were dropped and why, and the parameter description
+says it up front.
+
+### Fixed — an empty result hid the fact that sources had answered
+
+`formatResult` returned early when the paper list was empty, so every filter note
+printed above it was the only explanation — and the summary line still read like
+"the search found nothing". It now says how many sources DID return papers and
+that the filters removed them.
+
+### Fixed — `year_from` silently kept works with no year
+
+The filter is `!p.year || p.year >= year`, which is the right rule — an unknown
+year is not "too old" — but the parameter description said "only papers with year
+>= this value" and the reply never mentioned the exception. Measured: with
+`year_from: 2015`, a work with `publication_year: null` appeared in the list with
+no explanation. The description and the reply now both state it, and the count is
+reported.
+
+### Verified
+
+16/16 assertions in a new suite (SSRF forms, null-vs-zero, redirect hops, filter
+reporting), plus the 19/19 and 13/13 suites from 0.6.2 and 0.6.3, plus a live
+regression of all six tools.
+
 ## [0.6.3] - 2026-11-23
 
 ### Added — `OPENALEX_API_KEY`

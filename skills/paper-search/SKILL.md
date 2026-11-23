@@ -59,8 +59,8 @@ Options:
 | `query` | keywords (required) |
 | `sources` | `all` · `international` · `indonesia` · or comma-separated ids |
 | `max_results` | results **per source** (1-50, default 5). The reply lists at most **40** papers after dedup, however high this is set — the cap is on the merged list, not per source |
-| `open_access_only` | only open-access papers |
-| `year_from` | only years >= this value |
+| `open_access_only` | only open-access papers. Works whose source does NOT report an OA status are **dropped** (Crossref, ACM, IEEE, PubMed never report it) — the reply states how many |
+| `year_from` | only years >= this value. Works with **no reported year are kept** and counted — an unknown year is not an old one |
 | `sort` | `relevance` (default) · `citations` (most cited first) · `newest` — use `citations` to raise classic/foundational works to the top |
 | `min_citations` | only papers with citations >= N. Works from sources that **do not report** citations are **dropped** as well (the threshold cannot be verified) and the count is mentioned in the report |
 | `kind` | `article` · `review` · `preprint` (comma-separated allowed) — forwarded to OpenAlex & Crossref/ACM, then filtered again after dedup. Works whose kind the source does not report are **still** shown |
