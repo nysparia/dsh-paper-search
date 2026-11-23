@@ -11,7 +11,7 @@ needs to be installed:
 
 | Capability | Single-entry equivalent | Purpose |
 |---|---|---|
-| `paper_search` | `paper({ mode: "search" })` | search literature across **23 sources** at once |
+| `paper_search` | `paper({ mode: "search" })` | search literature across **21 sources** at once (23 registered; `pmc` and `ios` are off by default) |
 | `paper_status` | `paper({ mode: "status" })` | which sources are actually **alive right now** + which converters exist |
 | `paper_detail` | `paper({ mode: "detail" })` | **metadata + abstract** for one paper or many at once (free, OpenAlex) |
 | `paper_citations` | `paper({ mode: "citations" })` | OpenAlex **citation graph** — who cites, and cites whom |
@@ -71,7 +71,7 @@ Options:
 > The two searches answer two different questions: *what is already recognized* and
 > *what is new*.
 
-## The 23 sources
+## The 23 registered sources (21 run by default)
 
 **International (20)** — official JSON APIs, except IACR which is parsed from HTML:
 
@@ -83,7 +83,7 @@ Options:
 | `doaj` | open-access journals — **including many Indonesian journals** |
 | `europepmc` | biomedicine, full text for OA |
 | `pubmed` | biomedicine (two calls: esearch + esummary) |
-| `pmc` | PubMed Central — open-access full text (two calls as well) |
+| `pmc` | PubMed Central — open-access full text (two calls as well). **OFF BY DEFAULT**: it is the OA slice of `pubmed` and costs 2 extra requests for records `pubmed` already returned |
 | `arxiv` | preprints; the plugin self-limits to 1 request / 3 seconds per their TOU |
 | `semantic` | Semantic Scholar; a free key raises the rate limit |
 | `core` | open-access repository aggregator — **key required** |
@@ -104,7 +104,7 @@ Options:
 |---|---|
 | `garuda` | Indonesian journal articles (Kemdiktisaintek) |
 | `sinta` | **a list of accredited JOURNALS** — not articles |
-| `ios` | IOS OneSearch, an Indonesian repository aggregator (Perpusnas) |
+| `ios` | IOS OneSearch, an Indonesian repository aggregator (Perpusnas). **OFF BY DEFAULT**: the host does not answer from this machine (connect timeout after 10.5 s), so it only cost time |
 
 > **For Indonesian topics, use INDONESIAN keywords.** Measured:
 > `"pendidikan karakter"` returns real Indonesian journals; its English
@@ -346,7 +346,7 @@ access — ACM PDFs still answer **HTTP 403** (measured 29 Sep 2026).
 
 ## No CLI required
 
-This plugin **stands alone**: all **23 sources** above are native over HTTP —
+This plugin **stands alone**: all **23 registered sources** above are native over HTTP —
 no CLI, no Python package, no third-party server.
 
 > Versions 0.1.6 and below once suggested the `openags/paper-search-mcp` CLI as a

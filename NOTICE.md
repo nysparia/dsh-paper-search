@@ -46,9 +46,18 @@ Changes in this fork, all of them either translation or bug fixes:
   the billed `get_semantic_paper_detail` was measured as the most expensive tool
   on the machine that prompted this fork — 60 calls / 60 credits, 31% of all
   billed spend, 15 of them consecutive calls that one batch would have answered
-  for 2 credits. The batch costs one request per identifier TYPE, not per paper.
-  This is an **addition**, not a translation or a fix, and it is the only change
-  in this fork that adds a capability upstream never had.
+  for 2 credits. The batch costs two requests per identifier TYPE (one for
+  ordinary works, one for retracted ones — OpenAlex's list endpoint hides
+  retracted works otherwise), not one per paper. This is an **addition**, not a
+  translation or a fix, and it is the only change in this fork that adds a
+  capability upstream never had.
+- **`pmc` and `ios` are off by default (0.6.1).** Both stay registered and
+  callable by name. `pmc` costs two extra requests per search for records
+  `pubmed` already returned in the same run; `ios` does not answer from this
+  machine at all (connect timeout after 10.5 s), so it only cost time. A bare
+  search went from 23 requests to 20. The group keywords respect the same rule,
+  and `paper_status` still reports all 23 so a default-off source cannot break
+  silently.
 
 ## What this package is
 

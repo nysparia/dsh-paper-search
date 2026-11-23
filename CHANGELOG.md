@@ -7,6 +7,48 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.1] - 2026-11-23
+
+### Changed — `pmc` and `ios` are off by default
+
+Both stay **registered** and callable by name (`sources: "pmc"`), but a bare
+`paper_search({ query })` no longer pays for them. Each was turned off for a
+measured reason:
+
+| id | Why | Measured |
+|---|---|---|
+| `pmc` | PubMed Central is the open-access full-text **slice of PubMed**, and it costs **two extra requests** (esearch + esummary) to NCBI for records `pubmed` already returned in the same run. The one thing it adds — full-text availability — `paper_fulltext` answers directly in one OpenAlex request. | 23 Nov 2026 |
+| `ios` | The host does not answer from this machine at all: `UND_ERR_CONNECT_TIMEOUT` on both https and http after **10.5 s**, so every default search waited 10.5 seconds to collect zero results. It is an HTML scrape with no API, so there is no fallback. | 23 Nov 2026 |
+
+Effect on a bare search, measured with a `fetch` counter:
+
+| | sources | HTTP requests | wall clock |
+|---|---|---|---|
+| before | 23 | 23 | 10–25 s |
+| after | 21 | 20 | 7–12 s |
+
+The request count drops by 3, not 2: `pmc` was making two requests per search.
+
+**The group keywords respect the same rule.** `sources: "indonesia"` used to
+return `garuda`, `sinta` **and** `ios`; it now returns the two that answer.
+Measured: 2 requests / 6.1 s, versus 3 requests / 16.6 s before. "Off by
+default" has to mean off in every default set, otherwise the one source that
+never answers comes back through the group keyword — the exact cost this change
+exists to remove. `sources: "ios"` still runs it.
+
+**`paper_status` still reports all 23.** It is the doctor: a source that is off
+by default must not be able to break silently. It marks them and states the
+default set:
+
+```
+  ?     PubMed Central     api      registered [off by default] (not probed — pass probe:true to test it)
+  ?     IOS OneSearch      html     registered [off by default] (not probed — pass probe:true to test it)
+note: a bare paper_search runs 21 of 23 sources. OFF BY DEFAULT: pmc, ios — registered and callable by name, but not part of "all".
+```
+
+The startup note now reports the default set separately from the registry, so
+"23 sources" is never read as "23 requests".
+
 ## [0.6.0] - 2026-11-23
 
 ### Added — `paper_detail` (free metadata + abstract, single or batch)

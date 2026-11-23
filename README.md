@@ -1,7 +1,9 @@
 # dsh-paper-search
 
-Literature search for **DeepSeek Harness**: twenty-three sources, all native HTTP —
-no external CLI, no Python package. Twenty-one of them need no credential at all.
+Literature search for **DeepSeek Harness**: twenty-three registered sources, all
+native HTTP — no external CLI, no Python package. Twenty-one of them need no
+credential at all. A bare search runs **21** of the 23; `pmc` and `ios` are
+registered but **off by default** (see [Sources off by default](#sources-off-by-default)).
 
 Registered as the `paper-search` skill and six model tools (`paper_search`,
 `paper_status`, `paper_detail`, `paper_citations`, `paper_oa`, `paper_fulltext`).
@@ -31,7 +33,7 @@ Registered as the `paper-search` skill and six model tools (`paper_search`,
 | `doaj` | DOAJ | open-access journals — includes many Indonesian journals |
 | `europepmc` | Europe PMC | biomedicine, full text for OA records |
 | `pubmed` | PubMed | biomedicine; two calls per search (esearch + esummary) |
-| `pmc` | PubMed Central | open-access full text; two calls per search |
+| `pmc` | PubMed Central | open-access full text; two calls per search — **off by default**, see below |
 | `arxiv` | arXiv | preprints; the plugin self-paces to 1 request / 3 s per arXiv's TOU |
 | `semantic` | Semantic Scholar | a free key raises the rate limit |
 | `core` | CORE | open-access repository aggregator — **CORE_API_KEY required** |
@@ -52,7 +54,34 @@ Registered as the `paper-search` skill and six model tools (`paper_search`,
 |---|---|---|
 | `garuda` | Garuda (Kemdiktisaintek) | Indonesian journal articles |
 | `sinta` | Sinta (Kemdiktisaintek) | accredited **journals**, not articles |
-| `ios` | IOS OneSearch (Perpusnas) | Indonesian repository aggregator |
+| `ios` | IOS OneSearch (Perpusnas) | Indonesian repository aggregator — **off by default**, see below |
+
+### Sources off by default
+
+Two sources are **registered but not part of `all`**. They stay callable by name
+(`sources: "pmc"`), but a bare `paper_search({ query })` no longer pays for them.
+Each was turned off for a measured reason, not a guess:
+
+| id | Why it is off | Measured |
+|---|---|---|
+| `pmc` | PubMed Central is the open-access full-text **slice of PubMed**, and it costs **two extra requests** (esearch + esummary) to NCBI for records `pubmed` already returned in the same run. The one thing it adds — full-text availability — `paper_fulltext` answers directly in one OpenAlex request. | 2026-11-23 |
+| `ios` | The host does not answer from this machine at all: `UND_ERR_CONNECT_TIMEOUT` on both https and http after **10.5 s**, so every default search waited 10.5 seconds to collect zero results. It is an HTML scrape with no API, so there is no fallback. | 2026-11-23 |
+
+Effect on a bare search, measured:
+
+| | requests | wall clock |
+|---|---|---|
+| before (23 sources) | 23 | 10–25 s |
+| after (21 sources) | 20 | 9.6 s |
+
+`paper_status` still reports **all 23** — it is the doctor, and a source that is
+off by default must not be able to break silently. It marks them:
+
+```
+  ?     PubMed Central     api      registered [off by default] (not probed — pass probe:true to test it)
+  ?     IOS OneSearch      html     registered [off by default] (not probed — pass probe:true to test it)
+note: a bare paper_search runs 21 of 23 sources. OFF BY DEFAULT: pmc, ios — registered and callable by name, but not part of "all".
+```
 
 ### `sources: "all"` and the DOI-input source
 
@@ -121,13 +150,13 @@ Restart DSH after installing.
 
 | | characters of JSON | ≈ tokens |
 |---|---|---|
-| `"five"` (default) | 10,050 | ~2,513 |
-| `"one"` | 4,646 | ~1,162 |
-| **saved** | **54%** | ~1,350 per request |
+| `"five"` (default) | 10,280 | ~2,570 |
+| `"one"` | 4,651 | ~1,163 |
+| **saved** | **55%** | ~1,407 per request |
 
 (For reference, the same measurement before `paper_detail` existed was 8,225
 characters / ~2,056 tokens for `"five"` and 4,088 / ~1,022 for `"one"` — so the
-new tool costs ~450 tokens in the default shape and ~140 in single-door mode.)
+new tool costs ~514 tokens in the default shape and ~141 in single-door mode.)
 
 **What it costs, stated plainly.** Tool names stop describing themselves
 (`paper_fulltext` no longer exists as a name; it becomes
