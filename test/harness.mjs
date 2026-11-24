@@ -11,6 +11,8 @@
 //   check(label, ok, detail)      a single boolean assertion (sets the exit code)
 //   reporter() -> {check, done}   counted assertions with a summary line
 //   loadTools(config)             the registered tools, by name — SYNC
+//   loadTools(config, options)    …with `options.credentials` as the seam
+//   fakeCredentials(values)       a stand-in for ctx.get('credentials')
 //   mockFetch(routes)             simple router, records url + headers
 //   installFetch(handler)         richer router, records url + init
 //   outcome(fn)                   did it throw, and with what message
@@ -59,19 +61,43 @@ export function reporter() {
  *
  * `cache: false` is forced (and can be overridden by `config`) so no cache file
  * is written: these tests must not touch the user's library folder.
+ *
+ * `options.credentials` is the DSH credential seam (`ctx.get('credentials')`).
+ * It is a SEPARATE argument, not a config field, because the plugin config is
+ * spread straight into `apply()` and a `credentials` key there would be read as
+ * plugin configuration. Omitting it reproduces a bare harness, which is the
+ * case the plugin must keep loading in.
  */
-export function loadTools(config = {}) {
+export function loadTools(config = {}, options = {}) {
   const tools = new Map();
   const ctx = {
     effect: (fn) => { fn(); return () => {}; },
     tools: { register: (t) => { tools.set(t.name, t); return () => {}; } },
     // No `skills` service: registerSkill then only records a note, which is the
     // documented behaviour for a bare harness.
-    get: () => undefined,
+    get: (name) => (name === 'credentials' ? options.credentials : undefined),
     logger: { info() {}, warn() {}, error() {}, debug() {} },
   };
   apply(ctx, { cache: false, ...config });
   return tools;
+}
+
+/**
+ * A stand-in for `ctx.get('credentials')` — the two methods this plugin uses.
+ *
+ * `values` is read on EVERY `resolve()`, so a test can rotate a key between two
+ * tool calls and observe the per-operation rule. `source` is what the real
+ * `credentials-local` reports for a stored value (`credentials-local/src/index.ts:638`).
+ */
+export function fakeCredentials(values, source = 'file') {
+  return {
+    resolve: async (ref) => (values[ref] === undefined || values[ref] === null
+      ? undefined
+      : { value: String(values[ref]), source }),
+    describe: async (ref) => (values[ref] === undefined || values[ref] === null
+      ? { configured: false, writable: true }
+      : { configured: true, source, writable: true, masked: '••••••••' }),
+  };
 }
 
 /** Build one fetch Response-shaped object from a body string. */
