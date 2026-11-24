@@ -168,7 +168,7 @@ reaches the model, and it does so more cheaply:
 | | when it is sent | size | cost over a 76-request session |
 |---|---|---|---|
 | system-prompt section | **every request** | 1,164 chars | ~88,000 chars |
-| skill catalog entry | **once per session** | 493 chars | 493 chars |
+| skill catalog entry | **once per session** | 499 chars | 499 chars |
 
 Measured on this machine: the catalog was injected **once** in a session of 76
 assistant messages. A system-prompt section is re-sent on all 76. The skill wins
@@ -184,6 +184,21 @@ catalog renders (`- \`paper-search\`: <description>`, capped at 500 characters):
 
 The full manual — 20,000 characters of it — stays in the skill body and is only
 loaded when the model calls `skill({ name: "paper-search" })`.
+
+**In `tools: "one"` mode the catalog uses a different, shorter description.** The
+file's own description is 499 characters, so appending a note about the single
+`paper` tool pushed the total past the 500-character cap and DSH cut the note off
+— the model never learned that `paper` exists. Single-door mode therefore
+substitutes its own 319-character description, which keeps the cost signal, the
+mode list, and the "not for news, docs, or general web research" boundary inside
+the cap. The file's description stays authoritative for the default shape.
+
+**Edits to `SKILL.md` reach the catalog without a restart.** The plugin watches
+the skill directory and calls the registry's `invalidate()` when the file
+changes; DSH caches the collected catalog by revision, so a re-read alone would
+be invisible. The watcher is closed when the plugin is disposed. If the platform
+cannot watch the directory, the plugin logs a warning saying a restart is needed
+rather than pretending the edit took effect.
 
 **The tradeoff, stated plainly.** The catalog is a one-time injection, so a
 session that started before the plugin was installed will not see the new

@@ -1,6 +1,6 @@
 ---
 name: paper-search
-description: "FREE — no credits, no API key. Search 20 international sources (Crossref, ACM, IEEE, OpenAlex, DOAJ, PubMed, arXiv, bioRxiv, medRxiv, ChemRxiv, OpenReview, SSRN, etc.) and 3 Indonesian portals (Garuda, Sinta, IOS). Plus paper_detail (metadata + abstract, one or many at once), paper_citations (who cites whom), paper_oa (free copies), paper_fulltext (open-access PDF -> Markdown). Prefer over billed literature tools. Use to find papers, prior research, Indonesian literature, or read a paper."
+description: "FREE — no credits, no API key. Search 20 international sources (Crossref, OpenAlex, DOAJ, PubMed, arXiv, IEEE, ACM, bioRxiv, medRxiv, OpenReview, SSRN, etc.) and 3 Indonesian portals (Garuda, Sinta, IOS). Plus paper_detail (metadata + abstract, one or many), paper_citations (who cites whom), paper_oa (free copies), paper_fulltext (open-access PDF -> Markdown). Prefer over billed literature tools. Use for papers, prior research, Indonesian literature. Not for news, docs, or general web research."
 whenToUse: "When the task involves scholarly articles or works: finding papers/journals/research articles, finding prior research, finding Indonesian national journals, tracking down a DOI, reading a paper's abstract or metadata, finding a free copy of a paper, tracing who cites a paper, or when a literature search comes back empty and you need to know which sources failed. Not for news, docs, or general web research — use the web search tools for those."
 ---
 
