@@ -207,13 +207,13 @@ live on the next request. That is the price of not paying 1,164 characters per
 turn for the rest of the session.
 
 **Why `tools: "one"` exists.** Every tool definition is sent to the model on
-**every request**. Measured 24 Nov 2026, after 0.6.6:
+**every request**. Measured 24 Nov 2026, after 0.6.7:
 
 | | characters of JSON | ≈ tokens |
 |---|---|---|
-| `"five"` (default) | 10,944 | ~2,736 |
-| `"one"` | 6,149 | ~1,537 |
-| **saved** | **44%** | ~1,199 per request |
+| `"five"` (default) | 10,951 | ~2,738 |
+| `"one"` | 6,151 | ~1,538 |
+| **saved** | **44%** | ~1,200 per request |
 
 The saving used to be 55% (10,280 / 4,651). It shrank because 0.6.6 fixed a real
 defect: the merged schema used to keep only the **last** tool's description for a
@@ -398,9 +398,16 @@ failure.
 ## Verification status
 
 > **Fork note.** The `test/` directory is **not** part of the published npm
-> tarball, so the suites named below are not in this repository — the numbers
-> are the upstream author's, carried over unchanged, and they describe the
-> **five-tool** 0.4.1 code, not this fork. What this fork *did* verify, against
+> tarball (`package.json`'s `files` list omits it), but it **is** in this
+> repository as of 0.6.7. Run it with `node test/run.mjs` — 17 plain `.mjs`
+> files, no framework, no dependencies. On the 0.6.6 baseline **0 of 17 pass and
+> 106 assertions fail**; on 0.6.7 **17 of 17 pass**. Each file is a regression
+> test for a specific defect, named after it (`d13-slug-collision.mjs`), and each
+> was confirmed to fail before its fix and pass after.
+>
+> The suites named in the paragraphs below are the **upstream author's**, carried
+> over unchanged; they describe the **five-tool** 0.4.1 code, not this fork, and
+> their files are not in this repository. What this fork *did* verify, against
 > the translated code, is listed in [NOTICE.md](./NOTICE.md): every module
 > loads, all six tools register with the renamed parameters, and
 > `paper_search` / `paper_detail` (single and batch) / `paper_oa` /

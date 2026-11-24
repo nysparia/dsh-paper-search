@@ -7,6 +7,216 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.7] - 2026-11-24
+
+Sixteen more defects, found by a second audit that re-read every file and
+measured each suspicion against the real code path before writing it down. Two
+were HIGH. Each was fixed in its own git worktree by a separate agent, then
+merged and re-verified together.
+
+The regression suite is new: `test/` holds 17 plain `.mjs` files, no framework,
+`node test/run.mjs`. On the 0.6.6 baseline **0 of 17 pass and 106 assertions
+fail**; after these fixes **17 of 17 pass**.
+
+### Fixed — `paper_fulltext` could return a DIFFERENT paper's full text
+
+The worst defect in either audit, because it produces confident wrong content
+rather than a visible error.
+
+`fileSlug()` built the cache filename from the DOI with
+`doi.replace(/[^a-z0-9.]+/gi, '_')`, so every non-alphanumeric character except
+`.` collapsed to one `_`. Distinct DOIs therefore shared a file:
+
+```
+10.1234/a-b  \
+10.1234/a_b   \
+10.1234/a b    >  all -> doi-10.1234_a_b     (5 distinct DOIs, ONE file)
+10.1234/a+b   /
+10.1234/a/b  /
+```
+
+`prepareFullText()` decides "already converted" by looking for `<slug>.md`, so
+the second paper was answered with the first paper's body. Measured end to end:
+
+```
+paper A = 10.1016/j.cell.2020.01-001   (already converted)
+paper B = 10.1016/j.cell.2020.01_001   (a DIFFERENT DOI, same slug)
+
+prepareFullText({ work: { doi: paperB } })
+  fromCache: true
+  used     : {"from":"local file","note":"already converted"}
+  content  : "# PAPER A CONTENT — this is the WRONG paper"
+```
+
+The agent then reads, quotes and cites the wrong paper. The title path had the
+same fault: `"Deep Learning: A Review"`, `"Deep Learning - A Review"` and
+`"Deep Learning, A Review"` all became `deep-learning-a-review-2020`.
+
+The slug now keeps its readable part and appends a short sha256 of the **exact
+identifier** — not of the collapsed form, which would reproduce the collision.
+The identifier is normalized first, so `10.1038/NATURE14539`,
+`https://doi.org/10.1038/nature14539` and `doi:10.1038/nature14539` still land on
+one file. A fuzz check of 75 punctuation-variant DOIs produced 75 distinct
+slugs. An old slug simply becomes a cache miss and is re-downloaded: a miss
+costs one download, a collision costs a wrong answer.
+
+### Fixed — `paper_status` sent the Semantic Scholar key to OpenAlex
+
+The probe options set `apiKey` to the **Semantic Scholar** key and never set
+`semanticApiKey`. In `sources.js`, `openalex()` reads `apiKey` and puts it in the
+`api_key` query parameter, while `semantic()` reads `semanticApiKey`. One wrong
+field name did two things at once. Measured with
+`{ SEMANTIC_SCHOLAR_API_KEY: 'S2-SECRET-KEY-123', OPENALEX_API_KEY: 'OA-KEY-456' }`:
+
+| request | before | after |
+|---|---|---|
+| `api.openalex.org/works` | `api_key=S2-SECRET-KEY-123` | `api_key=OA-KEY-456` |
+| `api.semanticscholar.org/…` | `x-api-key=(none)` | `x-api-key=S2-SECRET-KEY-123` |
+
+A probe is the one call a user makes to diagnose a broken key, so it was also
+the call that could never confirm the S2 key worked.
+
+### Fixed — HTML entities were never decoded, and one author became two
+
+`cleanText()` matched `#\d+|[a-z]+`, which cannot match a hex entity (`&#x27;`
+is `#` followed by `x27`). And `authorList()` split on `;` **before** any
+decoding — every entity ends with `;`, so an entity inside a name split that
+name in two.
+
+| input | before | after |
+|---|---|---|
+| `O&#x27;Brien, Sean` | `["O&#x27","Brien, Sean"]` — ONE author became TWO | `["O'Brien, Sean"]` |
+| `caf&#233;` | `["caf&#233"]` | `["café"]` |
+| `A &amp; B` | `["A &amp","B"]` | `["A & B"]` |
+| `Smith; Jones` | `["Smith","Jones"]` | unchanged — a real separator still works |
+
+Hex and decimal are both decoded now, before the split, and `fromCodePoint`
+replaces `fromCharCode` (which truncates above U+FFFF).
+
+### Fixed — `paper_detail` returned a string for argument errors
+
+DSH maps a thrown error to `ToolExecutionFailure` (`isError: true`) and a
+returned string to `ToolExecutionSuccess` (`isError: false`). `paper_detail`
+returned strings, so a rejected call was indistinguishable from a real answer —
+and inconsistent with its two siblings:
+
+```
+paper_detail({})                        -> RETURNED a string (isError:false)
+paper_detail({identifiers: [51 items]}) -> RETURNED a string (isError:false)
+paper_fulltext({})                      -> THREW (isError:true)
+paper_citations({})                     -> THREW (isError:true)
+```
+
+Both now throw `invalid arguments: …`, the wording DSH itself uses. This also
+fixed the single-door path for free: `paper({ mode: 'detail' })` reached the same
+return, because `detailTool` declares `required: []` on purpose.
+
+### Fixed — a trailing dot on the host bypassed the SSRF guard
+
+`isSafeUrl()` compared `u.hostname` against `localhost`, `.local`, `.internal`,
+`.home.arpa` without stripping the FQDN root dot, and `localhost.` resolves to
+`::1` on this machine:
+
+```
+http://localhost/    -> BLOCK
+http://localhost./   -> SAFE      <- one character bypassed the guard
+http://foo.local./   -> SAFE
+```
+
+This matters because download URLs come from third-party API replies (OpenAlex,
+Unpaywall, CORE) and are treated as untrusted. The hostname is now stripped of
+one trailing dot before every check; no existing rule was weakened.
+
+### Fixed — search results never carried the retraction flag
+
+`makePaper()` had no `isRetracted` field, so `fromOpenAlexWork()` dropped
+`is_retracted` even though the search request returns it. `paper_detail` warned
+about retraction; `paper_search` did not — and the codebase calls this the worst
+possible failure mode, having already fixed it for the batch path.
+
+Retracted papers are now carried through (and survive `dedup`, so a work flagged
+by any source stays flagged), warned about before the list, and marked
+individually. They are **not** filtered out: a retracted paper is exactly the one
+a reader most needs to see, flagged.
+
+### Fixed — a source that needs a credential was reported as FAILED on every search
+
+`CORE` is in the default set and cannot work without `CORE_API_KEY`, so every
+bare search printed:
+
+```
+FAILED CORE   api   CORE_API_KEY is required — without a key CORE answers HTTP 429 with an empty body
+```
+
+The reply then told the model a source had "failed" when it had never been
+configured. Such a source is now skipped through the existing `skipped` channel
+with a reason that says so. `CORE` stays in the default set — with a key it still
+runs — and `paper_status` still reports the missing credential, which is its job.
+
+This needed a `needs` field on the registry entries, because the registry did not
+name the credential anywhere. It is a list: `unpaywall()` takes `politeEmail()`,
+which falls back from `UNPAYWALL_EMAIL` to `OPENALEX_EMAIL`, so checking only the
+first name would have skipped a fully configured source.
+
+### Fixed — an explicitly named DOI-only source was sent a keyword
+
+`runSearch` skipped a DOI-input source for a non-DOI query, but exempted one the
+caller named explicitly. `unpaywall()` calls `normalizeDoi()`, which accepts
+almost any text, so it requested
+`https://api.unpaywall.org/v2/digital%20literacy?email=…` and the reply reported:
+
+```
+1 sources searched · 1 answered · 0 unique papers after dedup
+  OK     Unpaywall          api/doi   0 results  (1 ms)
+```
+
+The source was reported as having **answered**. It had not — it was asked a
+question it cannot answer — and the reply then advised "retry once, then try
+other sources", which is wrong advice for a malformed request. The rule now
+applies to every selection, and the reply no longer offers that advice when no
+source was actually called.
+
+### Fixed — `paper_citations` silently coerced invalid enum values
+
+`paper_search` warns about an unrecognized `sort`; `paper_citations` did not, for
+any of its three enum-ish parameters:
+
+```
+sort: 'banana'      -> "showing 0 (most cited first)"   no warning
+direction: 'sideways' -> "direction: citing — …"        silently became "citing"
+analysis: 'banana'  -> runs the ordinary list           silently ignored
+```
+
+A caller who typos `direction: "reference"` (singular) got the opposite
+direction with no signal, and the reply then said "Nothing cites it yet" — which
+reads as a finding about the paper rather than a mistake in the call. All three
+now warn in `paper_search`'s wording. Still a warning, never an error.
+
+### Fixed — smaller items
+
+- A bare `PMC123` was not parsed, though `paper_detail`'s description promises
+  it: `parseIdentifier('PMC8371605')` returned `null`, so it ran a title search
+  that usually missed. A bare `PMC…` is unambiguous, unlike a bare number, which
+  the code deliberately refuses to guess.
+- `isDoi` accepted trailing punctuation and `normalizeDoi` kept it, so a DOI
+  pasted from the end of a sentence 404'd and the reply said "DOI … not found in
+  OpenAlex" — which reads as "this paper does not exist". Trailing `.` `,` `;`
+  `:` are stripped, and a `)` only while `)` outnumbers `(` — so the Lancet DOI
+  `10.1016/S0140-6736(20)31180-6` survives intact.
+- `paper_status` silently widened an unknown `sources` id to all 23 sources and
+  said nothing. It now reports the unknown id in `paper_search`'s wording.
+- `collapseTitle` missed an exact doubling of odd length: the loop bound was
+  `Math.floor(n/2)` and the period is exactly `n/2`, so a 33-character repeat
+  with period 17 was never tried. `Math.ceil` reaches it. (Note `p <= n/2` would
+  not have worked either — `17 <= 16.5` is false.)
+- `summarizeCluster` reported `0` citations when every count was unknown, the
+  same "unknown is not zero" bug already fixed in three other places. It now
+  returns `null` and the report prints `?`.
+- `cacheNote` was set and never read, so a cached conversion dropped because its
+  PDF was invalid vanished with no explanation. It is now printed.
+- A corrupt cache file was silently treated as empty. It still behaves as an
+  empty cache, but `status().corrupt` is now reported and `paper_status` says so.
+
 ## [0.6.6] - 2026-11-24
 
 Fifteen defects found by an audit that ran every claim against the real code
