@@ -7,6 +7,58 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.9] - 2026-11-24
+
+Two defects found by running the installed plugin against the live sources
+rather than against mocks.
+
+### Fixed — IACR reported a valid empty answer as a broken connector
+
+`iacr()` treats "no `paperlink` anchor found" as proof that the operator changed
+the markup, and throws. But IACR writes a real zero-result page, which of course
+has no result anchors. Measured 24 Nov 2026 against the live site:
+
+| query | anchors | bytes | body |
+|---|---|---|---|
+| `literature` | 100 | 162,299 | results |
+| `digital literacy` | 0 | 17,108 | `<h4 class="mt-5">No results</h4>` |
+
+So a genuinely empty search was reported as `IACR markup changed: links with
+class "paperlink" are no longer found`, and the reply then told the reader the
+source had **FAILED** — the opposite of the truth. This is the same defect the
+three Indonesian portals were fixed for (`portalHasNoResults`); IACR was missed
+because it is declared `kind: 'api'` while actually scraping HTML.
+
+The zero-result marker is now checked first. The real guard is unchanged: a page
+with neither result anchors nor a zero-result marker still throws.
+
+### Fixed — a network failure never named its cause
+
+`searchSource()` built its message from `e.message` only. For a `fetch` failure
+that is the constant string `fetch failed`, with the actual reason in `e.cause` —
+so a connection reset, a DNS miss, a refused connection and an expired
+certificate all read identically. Measured against the live Garuda portal:
+
+```
+fetch(...) -> TypeError: fetch failed
+              cause: ECONNRESET
+reported   -> "Garuda  html  fetch failed"
+```
+
+The cause code is what makes the line actionable: `ECONNRESET` means the server
+dropped the connection (retry later), `ENOTFOUND` means the name does not resolve
+(the source is gone), `CERT_HAS_EXPIRED` means the certificate is stale. The
+report now reads `fetch failed [ECONNRESET]`. An `AggregateError` cause (a host
+with both A and AAAA records) contributes every code, joined with `/`.
+
+HTTP status and body reporting are unchanged, and a timeout is still just
+`timeout`.
+
+### Tests
+
+Two new files, `test/d22` and `test/d23`, 23 assertions. Suite is now **24
+files**; both new files fail on the 0.6.8 baseline and pass on 0.6.9.
+
 ## [0.6.8] - 2026-11-24
 
 **BREAKING (credential precedence).** The plugin now resolves credentials

@@ -399,13 +399,16 @@ failure.
 
 > **Fork note.** The `test/` directory is **not** part of the published npm
 > tarball (`package.json`'s `files` list omits it), but it **is** in this
-> repository as of 0.6.7. Run it with `node test/run.mjs` — 22 plain `.mjs`
-> files, no framework, no dependencies. On the 0.6.6 baseline **1 of 22 pass and
-> 126 assertions fail**; on 0.6.8 **22 of 22 pass**. (The one that passes on
-> 0.6.6 is the no-regression fence for the credential seam, which asserts the
-> plugin still loads without a seam — true before and after.) Each file is a regression
-> test for a specific defect, named after it (`d13-slug-collision.mjs`), and each
-> was confirmed to fail before its fix and pass after.
+> repository as of 0.6.7. Run it with `node test/run.mjs` — 24 plain `.mjs`
+> files, no framework, no dependencies. On 0.6.9 **24 of 24 pass**.
+>
+> Each file is a regression test for a specific defect, named after it
+> (`d13-slug-collision.mjs`), and each was confirmed to fail before its fix and
+> pass after. The suite is cumulative, so the number that pass on an older
+> baseline depends on which defects that baseline already had: on 0.6.6,
+> **1 of 24** pass (the credential-seam no-regression fence, which asserts the
+> plugin still loads without a seam — true before and after); on 0.6.8,
+> **22 of 24** pass, because only the two 0.6.9 defects remain.
 >
 > The suites named in the paragraphs below are the **upstream author's**, carried
 > over unchanged; they describe the **five-tool** 0.4.1 code, not this fork, and
