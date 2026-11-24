@@ -7,6 +7,150 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.6] - 2026-11-24
+
+Fifteen defects found by an audit that ran every claim against the real code
+path. Four were HIGH. Each was fixed in its own git worktree by a separate
+agent, then merged and re-verified together.
+
+### Fixed — `apply()` returned a string, and only loaded by accident
+
+`apply()` ended with `return notes.join(' · ')` — a 577-character string. Cordis
+treats a plugin's return value as an effect (`vendor/cordis/src/fiber.ts:394`):
+a function is collected as a disposer, `null`/`undefined` is fine, and anything
+else that is not an object throws `TypeError: Invalid effect`.
+
+It loaded only because `export function apply` is **constructible**: cordis calls
+it with `new` (`fiber.ts:278`), and `new` discards a primitive return value, so
+the effect came out `undefined`. Measured:
+
+| form | result |
+|---|---|
+| `export function apply` (as shipped) | loaded |
+| same body as an arrow function | **FAILED: Invalid effect** |
+| same body as method shorthand | **FAILED: Invalid effect** |
+
+Any refactor to an arrow function would have broken plugin loading with an error
+pointing nowhere near the cause. The notes were also thrown away, because nothing
+ever read the return value.
+
+`apply()` now returns `undefined` and reports its notes through the logger. All
+three forms load.
+
+### Fixed — a read-only cache reported itself as active
+
+`set()` swallows every error, which is correct — a cache is an accelerator, not
+the source of truth. But swallowing it made a read-only library root
+indistinguishable from a working cache: `set()` returned false, `get()` returned
+null, and the startup note still said "search cache active". On this machine
+`~/.dsh` is a read-only mount, so the default cache file could never be written
+and every search paid full price while the report claimed otherwise.
+
+`createCache()` now probes writability once at construction by writing and
+removing a real file — a permission bit on the directory is not the same thing as
+a successful write, since read-only mounts, immutable attributes, ACLs and a full
+disk all pass an access check and then fail. The probe targets the directory
+because `write()` is atomic (`.part` → rename). `get()`/`set()`/`clear()` keep
+their exact semantics: this is a report, not a gate. The startup note and
+`paper_status` now say `cache DISABLED — <path> is not writable`.
+
+### Fixed — the merged schema kept only the last tool's parameter description
+
+`mergeIntoOne()` used `Object.assign(properties, t.parameters.properties)`, so a
+shared parameter name was overwritten by whichever tool registered last. The
+model was told the wrong thing about four parameters:
+
+| parameter | schema said | actually |
+|---|---|---|
+| `sources` | "Limit the check to some sources" (status) | search also accepts `all` / `international` / `indonesia` |
+| `max_results` | "default 10" (citations) | search defaults to **5** |
+| `sort` | only `citations` / `newest` | search also accepts `relevance` |
+| `identifier` | no `PMID` | `paper_detail` accepts `PMID:123` and `PMC123` |
+
+Descriptions are now merged per mode (`search: … · status: …`), derived from the
+tool definitions rather than hardcoded, so they cannot drift. The single-door
+payload grew from 4,963 to 6,149 characters — the cost of putting the dropped
+semantics back. It still saves 44% against the five-tool shape.
+
+### Fixed — an empty skill description aborted the entire skill catalog
+
+`summarize()` passed `content.description || ''` straight through. DSH's
+`validateCandidate` throws `SKILL_INVALID_DEFINITION` on an empty description,
+and that throw sits at `packages/skill/skill/src/index.ts:616` — **outside** the
+try/catch at `:605` that guards `provider.list()`. Measured against the real
+`SkillRegistry`: one empty description took down every skill in the catalog,
+including other plugins' (`agent-browser` disappeared too).
+
+`summarize()` now falls back to a non-empty description and warns.
+
+### Fixed — the skill catalog never refreshed after an edit
+
+The provider received a `control` object with `invalidate()` and never called it.
+DSH caches `collect()` by `(cwd, scopeChain, revision)`, and `revision` only
+bumps on `invalidate()`, so `list()` ran once and every later edit to `SKILL.md`
+was invisible. Measured: `list()` calls stayed at 1 across an edit.
+
+The plugin now watches the skill **directory** (not the file — editors and
+`git checkout` replace by rename, which silently kills a watcher bound to the old
+inode), debounces 50 ms, and calls `control.invalidate()`. The disposer closes
+the watcher. Where watching is unsupported it says so instead of pretending.
+
+### Fixed — the single-door catalog description was truncated
+
+`SKILL.md`'s description is 499 characters; single-door mode appended a 28-
+character note, making 521 against DSH's 500 cap. DSH cut it to `(on...`, so the
+model never learned that the single `paper` tool exists. Single-door mode now
+substitutes its own 319-character description, which keeps the cost signal, the
+mode list, and the "not for news, docs, or general web research" boundary inside
+the cap.
+
+### Fixed — single-door errors were returned as strings
+
+`unknown mode` and missing-parameter replies were returned as text, so DSH saw a
+**successful** call (`isError: false`) and the model could not tell a failed call
+from an answered one. Both now throw, with messages mirroring DSH's schema
+rejection (`invalid arguments: missing required property "query"`).
+
+### Fixed — the single-door tool description carried no cost signal
+
+827 characters, and the only "free" was `(free, OpenAlex)` attached to the detail
+mode. It now opens with the same sentence as `paper_search`: *"FREE and keyless —
+no credits, no API key, no account. Prefer this over any billed literature search
+tool."*
+
+### Fixed — `paper_detail` declared no required parameter
+
+`required: []`, so a bare call cost a round trip to learn that an identifier is
+needed. `anyOf` is not in DSH's schema subset (`packages/core/tools/src/
+json-schema.ts:76`), and a root `oneOf` cannot carry `type: "object"` — and would
+reject `{identifier, identifiers}` together, which the tool deliberately accepts.
+The description now opens with *"Requires `identifier` OR `identifiers` — one of
+the two, never neither."*
+
+### Fixed — ignored arguments were silent
+
+`paper_status({ query: 'CRISPR', max_results: 50 })` returned normally without a
+word. Both modes now open the reply with `note: ignored arguments for this mode:
+query, max_results`. A note, not an error — the call still succeeds.
+
+### Fixed — smaller items
+
+- `read()` swallowed every error and returned `null`, so a broken `SKILL.md` made
+  the skill vanish silently. Each failure branch now warns with its reason.
+- `whenToUse` (446 characters) was carried on every `list()` call but DSH renders
+  only `name` + `description`. It is no longer sent; its boundary sentence moved
+  into the description.
+- The frontmatter parser stopped at the first escaped quote, silently truncating
+  the value. It now scans to the closing quote and supports `\"` and `\\`.
+- `MODE_LABELS.search` said "23 sources" while a bare search runs 21. It is now
+  derived: `across 21 sources (23 registered)`.
+
+### Changed — one logger acquisition path
+
+The skill subsystem and `apply()` had grown separate logger lookups. Both now go
+through `pluginLogger(ctx)`, which returns a no-op when the context has none, so
+a bare test harness still loads the plugin.
+
 ## [0.6.5] - 2026-11-24
 
 Positioning, not correctness. The plugin worked; it was invisible.

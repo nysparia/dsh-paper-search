@@ -207,17 +207,21 @@ live on the next request. That is the price of not paying 1,164 characters per
 turn for the rest of the session.
 
 **Why `tools: "one"` exists.** Every tool definition is sent to the model on
-**every request**. Measured 23 Nov 2026, after `paper_detail` was added:
+**every request**. Measured 24 Nov 2026, after 0.6.6:
 
 | | characters of JSON | ≈ tokens |
 |---|---|---|
-| `"five"` (default) | 10,280 | ~2,570 |
-| `"one"` | 4,651 | ~1,163 |
-| **saved** | **55%** | ~1,407 per request |
+| `"five"` (default) | 10,944 | ~2,736 |
+| `"one"` | 6,149 | ~1,537 |
+| **saved** | **44%** | ~1,199 per request |
 
-(For reference, the same measurement before `paper_detail` existed was 8,225
-characters / ~2,056 tokens for `"five"` and 4,088 / ~1,022 for `"one"` — so the
-new tool costs ~514 tokens in the default shape and ~141 in single-door mode.)
+The saving used to be 55% (10,280 / 4,651). It shrank because 0.6.6 fixed a real
+defect: the merged schema used to keep only the **last** tool's description for a
+shared parameter, so `sources` documented `paper_status`'s semantics instead of
+`paper_search`'s, `max_results` said "default 10" where search defaults to 5,
+`sort` never mentioned `relevance`, and `identifier` never mentioned `PMID` —
+which `paper_detail` accepts. Those descriptions are now merged per mode
+(`search: … · status: …`), and the text that was silently dropped is back.
 
 **What it costs, stated plainly.** Tool names stop describing themselves
 (`paper_fulltext` no longer exists as a name; it becomes
