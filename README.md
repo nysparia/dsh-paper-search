@@ -399,9 +399,11 @@ failure.
 
 > **Fork note.** The `test/` directory is **not** part of the published npm
 > tarball (`package.json`'s `files` list omits it), but it **is** in this
-> repository as of 0.6.7. Run it with `node test/run.mjs` — 17 plain `.mjs`
-> files, no framework, no dependencies. On the 0.6.6 baseline **0 of 17 pass and
-> 106 assertions fail**; on 0.6.7 **17 of 17 pass**. Each file is a regression
+> repository as of 0.6.7. Run it with `node test/run.mjs` — 22 plain `.mjs`
+> files, no framework, no dependencies. On the 0.6.6 baseline **1 of 22 pass and
+> 126 assertions fail**; on 0.6.8 **22 of 22 pass**. (The one that passes on
+> 0.6.6 is the no-regression fence for the credential seam, which asserts the
+> plugin still loads without a seam — true before and after.) Each file is a regression
 > test for a specific defect, named after it (`d13-slug-collision.mjs`), and each
 > was confirmed to fail before its fix and pass after.
 >
@@ -488,11 +490,19 @@ printed, and `paper_status` exists to prove liveness on demand.
 
 ## Credentials (all optional)
 
-No key is bundled. Read order:
+No key is bundled. Read order, highest priority first:
 
-1. plugin config in your DSH profile,
-2. environment variables `PAPER_SEARCH_MCP_<NAME>`, then `<NAME>`,
-3. the file `~/.config/paper-search-mcp/.env` (belonging to the upstream CLI).
+1. **the DSH credential seam** — a key saved through the DSH configuration UI
+   (`~/.dsh/.credentials.yaml`), resolved once per tool call so a rotated key
+   reaches the next call without a restart,
+2. plugin config in your DSH profile,
+3. environment variables `PAPER_SEARCH_MCP_<NAME>`, then `<NAME>`,
+4. the file `~/.config/paper-search-mcp/.env` (belonging to the upstream CLI).
+
+The seam is first because DSH ranks its stored file above the environment, and
+because a key you saved in the UI must actually be the key in use. Layers 2–4
+remain as fallbacks so a machine already configured for the upstream
+`paper-search-mcp` CLI keeps working.
 
 | Name | Purpose |
 |---|---|
@@ -502,6 +512,16 @@ No key is bundled. Read order:
 | `SEMANTIC_SCHOLAR_API_KEY` | raises Semantic Scholar rate limits |
 | `DOAJ_API_KEY` | raises DOAJ's hourly limit |
 | `CORE_API_KEY` | **required for the `core` source** — without it CORE answers HTTP 429 with an empty body |
+
+Each name can be pointed at a differently-named reference with an optional config
+field — `openAlexApiKeyEnv`, `semanticScholarApiKeyEnv`, `doajApiKeyEnv`,
+`coreApiKeyEnv`, `unpaywallEmailEnv`, `openAlexEmailEnv` — the same lever as
+`apiKeyEnv` in DSH's own LLM plugins.
+
+A key must be printable ASCII with no space, because `fetch` cannot build an HTTP
+header from anything else. Surrounding whitespace is trimmed; anything else is
+rejected with a message naming the reference (never the value), rather than
+surfacing as an opaque 401.
 
 ### Why `OPENALEX_API_KEY` is worth setting
 
@@ -522,7 +542,10 @@ exactly — *"this request has no API key, so it counts against the free daily
 budget shared by everyone on your network's IP address"*.
 
 Get one free at <https://openalex.org/settings/api-key> (sign-up takes about 30
-seconds; the key only works after its email is verified). Then either:
+seconds; the key only works after its email is verified). Then any of:
+
+Save it in the DSH configuration UI (writes `~/.dsh/.credentials.yaml` — the
+highest-priority layer), or:
 
 ```sh
 export OPENALEX_API_KEY=your_key
@@ -534,7 +557,7 @@ or put it in `~/.config/paper-search-mcp/.env`:
 OPENALEX_API_KEY=your_key
 ```
 
-`paper_status` reports whether the key is readable and from where, and says so
+`paper_status` reports whether the key is readable, from which layer, and says so
 explicitly when it is missing.
 
 > **`mailto` is not the lever any more.** Older versions of this file (and the

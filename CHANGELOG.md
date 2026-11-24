@@ -7,6 +7,113 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.8] - 2026-11-24
+
+**BREAKING (credential precedence).** The plugin now resolves credentials
+through DSH's credential seam, and a value the seam resolves **beats** a value in
+plugin config. See "Changed — credential precedence" below before upgrading.
+
+### Fixed — the plugin ignored DSH's credential seam
+
+DSH keeps secrets out of configuration: settings and `cordis.yml` carry
+*references* (environment-variable names), a provider owns the values, and
+consumers resolve a reference once per operation
+(`docs/subsystems/credentials.md`). This plugin did none of that — it read
+plugin config, `process.env`, and `~/.config/paper-search-mcp/.env`, and never
+touched `ctx.credentials`.
+
+Measured 24 Nov 2026, with a key stored through the seam:
+
+```
+key stored via ctx.credentials -> api_key sent: (NONE — plugin did not see it)
+paper_status says: OPENALEX_API_KEY               EMPTY
+```
+
+Three consequences, all now fixed:
+
+1. **A key saved in the DSH configuration UI did not work.** The UI writes
+   `~/.dsh/.credentials.yaml`; the plugin never read it. The user believed the
+   key was stored and it was not.
+2. **The precedence was inverted.** DSH ranks the stored file above the
+   environment; the plugin had no stored-file layer at all.
+3. **`paper_status` reported a source it had not consulted.** It printed
+   `← environment variable` from its own reader. It now prints the seam's own
+   `source` (`file`, `env`, `project-env`, `user-env`) plus the masked preview,
+   and keeps the old wording only when no seam exists — where it is then true.
+
+The seam is read with `ctx.get('credentials')`, **not** `ctx.credentials`, and
+`credentials` is deliberately **not** in `inject`: the seam is optional and a
+bare harness must still load the plugin. `llm-pi-ai` does the same
+(`packages/llm/llm-pi-ai/src/index.ts:221`). `@deepseek-ai/dsh-credentials` is
+not imported — it is not resolvable from this package, and `credentialRef()` is
+a compile-time brand only (`packages/util/brand/src/index.ts:28`), so a plain
+string is correct at runtime; the name grammar is checked locally.
+
+Resolution happens **once per tool execution**, not once per process, so a
+rotated key reaches the next call without a restart — the seam's whole point.
+The snapshot is held in `AsyncLocalStorage`, because two tool calls can be in
+flight at once and a shared variable would let one execution's snapshot answer
+the other's reads. Verified: two concurrent executions sent `KEY-1` and `KEY-2`,
+not the same value twice.
+
+### Changed — credential precedence
+
+Highest first:
+
+| Layer | Before | After |
+|---|---|---|
+| DSH credential seam (`~/.dsh/.credentials.yaml`, UI) | not read | **wins** |
+| plugin config | won | second |
+| `PAPER_SEARCH_MCP_<NAME>` / `<NAME>` in the environment | second | third |
+| `~/.config/paper-search-mcp/.env` | third | fourth |
+
+**What an existing user will notice:** a key set in plugin config now loses to a
+key the seam resolves. If you set `OPENALEX_API_KEY` in plugin config *and* have
+it in the environment, the environment now wins, because `credentials-local`
+ranks the stored file above the environment and the seam above everything. The
+plugin's own `.env` fallback is kept — removing it would break machines already
+configured for the upstream `paper-search-mcp` CLI, and the seam's own
+`dotenvFallback` does not read that path.
+
+### Fixed — a malformed API key surfaced as an opaque 401
+
+`packages/credentials/credentials/src/api-key.ts` defines the transport
+invariant: a key must be printable ASCII with no space, because `fetch` cannot
+build a header from anything else. A key with a newline previously produced an
+opaque 401 or a `fetch` error.
+
+Surrounding whitespace is trimmed silently — a padded key has exactly one
+reading. Anything else is rejected with a message that names the reference and
+never contains the value:
+
+```
+paper-search: the API key resolved from OPENALEX_API_KEY contains characters
+no HTTP header can carry; set OPENALEX_API_KEY to the raw key alone (the DSH
+configuration UI writes it) or export it in the launching environment
+```
+
+A malformed value is **reported, never skipped**: falling through to a lower
+layer would silently authenticate as somebody else's tenant. `paper_status`
+prints a `REJECTED` line instead of throwing, because a user reaches for that
+tool precisely when a key is not working.
+
+### Added — optional `*Env` config fields
+
+Each credential can be pointed at a differently-named reference, the same lever
+as `apiKeyEnv` in `packages/llm/llm-pi-ai/src/config.ts:222`:
+`unpaywallEmailEnv`, `openAlexEmailEnv`, `openAlexApiKeyEnv`,
+`semanticScholarApiKeyEnv`, `doajApiKeyEnv`, `coreApiKeyEnv`. Absent means the
+current name.
+
+### Tests
+
+Five new files, `test/d17`–`d21`, covering: the seam reaching the request, the
+seam beating config and environment, the plugin still loading and reading its own
+fallbacks with no seam, malformed-key rejection, `paper_status` reporting the
+seam's source, and rotation without re-instantiating. Suite is now **22 files**;
+on the 0.6.7 baseline **18 of 22 pass with 20 failing assertions**, on 0.6.8
+**22 of 22 pass**.
+
 ## [0.6.7] - 2026-11-24
 
 Sixteen more defects, found by a second audit that re-read every file and
