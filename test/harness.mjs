@@ -1,11 +1,25 @@
-// test/harness.mjs — shared helpers for the plain-.mjs regression tests.
+// test/harness.mjs — shared helpers for the regression tests.
 //
-// No test framework: each test file is run with `node test/<name>.mjs`, prints
-// one PASS/FAIL line per assertion, and exits non-zero if any assertion failed.
+// There is no test framework here on purpose: every test is a plain `.mjs` file
+// run with `node test/<name>.mjs`, prints one PASS/FAIL line per assertion, and
+// exits non-zero when anything failed. That keeps the suite runnable on a bare
+// Node install, which is the same constraint the plugin itself follows.
 //
-// The tools are NOT exported from lib/index.js — only `apply` is. So the tests
-// go through the REAL registration path with a fake ctx, which also means a
-// change that breaks registration breaks these tests instead of passing them.
+// This file is the MERGE of three harnesses written independently by three
+// defect branches. Both APIs are kept because both are in use:
+//
+//   check(label, ok, detail)      a single boolean assertion (sets the exit code)
+//   reporter() -> {check, done}   counted assertions with a summary line
+//   loadTools(config)             the registered tools, by name — SYNC
+//   mockFetch(routes)             simple router, records url + headers
+//   installFetch(handler)         richer router, records url + init
+//   outcome(fn)                   did it throw, and with what message
+//   fakePdf()                     a body that passes the %PDF- + size check
+//
+// `loadTools` is deliberately SYNCHRONOUS: `apply()` is synchronous, and
+// `await` on a non-promise is a no-op, so callers that write `await loadTools()`
+// keep working unchanged. Making it async would have forced a rewrite of every
+// call site for no benefit.
 
 import { apply } from '../lib/index.js';
 
@@ -16,17 +30,41 @@ export function check(label, ok, detail = '') {
   return ok;
 }
 
+/** Collect assertions; `done()` prints the verdict and sets the exit code. */
+export function reporter() {
+  let failed = 0;
+  let passed = 0;
+  const checkOne = (name, ok, detail = '') => {
+    if (ok) passed++;
+    else failed++;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
+  };
+  const done = (label) => {
+    console.log();
+    console.log(failed === 0
+      ? `RESULT: ${passed} assertion(s) passed (${label})`
+      : `RESULT: ${failed} of ${passed + failed} assertion(s) FAILED (${label})`);
+    process.exit(failed === 0 ? 0 : 1);
+  };
+  return { check: checkOne, done };
+}
+
 /**
  * Register the plugin against a fake ctx and return the tools by name.
  *
- * `cache: false` is forced so no cache file is written: these tests must not
- * touch the user's library folder.
+ * `apply()` is the only exported door into the tool definitions, so the tests go
+ * through it instead of reaching for internals — that way a test cannot pass on
+ * a code path the plugin never actually registers, and a change that breaks
+ * registration fails these tests rather than passing them.
+ *
+ * `cache: false` is forced (and can be overridden by `config`) so no cache file
+ * is written: these tests must not touch the user's library folder.
  */
 export function loadTools(config = {}) {
   const tools = new Map();
   const ctx = {
-    effect: (fn) => { fn(); },
-    tools: { register: (t) => { tools.set(t.name, t); } },
+    effect: (fn) => { fn(); return () => {}; },
+    tools: { register: (t) => { tools.set(t.name, t); return () => {}; } },
     // No `skills` service: registerSkill then only records a note, which is the
     // documented behaviour for a bare harness.
     get: () => undefined,
@@ -34,6 +72,19 @@ export function loadTools(config = {}) {
   };
   apply(ctx, { cache: false, ...config });
   return tools;
+}
+
+/** Build one fetch Response-shaped object from a body string. */
+function responseOf(body, status = 200, headerMap = {}) {
+  const headers = new Map(Object.entries(headerMap).map(([k, v]) => [k.toLowerCase(), String(v)]));
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (k) => headers.get(String(k).toLowerCase()) ?? null },
+    text: async () => body,
+    json: async () => JSON.parse(body),
+    arrayBuffer: async () => Buffer.from(body),
+  };
 }
 
 /**
@@ -50,12 +101,31 @@ export function mockFetch(routes) {
     const u = String(url);
     calls.push({ url: u, headers: opts.headers ?? {} });
     const body = routes(u, opts) ?? '{}';
-    return { ok: true, status: 200, text: async () => body };
+    return responseOf(body);
   };
   return {
     calls,
     restore: () => { globalThis.fetch = original; },
   };
+}
+
+/**
+ * Replace `globalThis.fetch` with a router. `handler(url, init)` returns
+ * `{ status, body, headers }`; `body` may be a string or a JSON-able value.
+ * Every call is recorded so a test can assert on what was actually requested.
+ */
+export function installFetch(handler) {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : String(input?.url ?? input);
+    calls.push({ url, init });
+    const reply = (await handler(url, init)) ?? {};
+    const status = reply.status ?? 200;
+    const body = reply.body ?? '';
+    return responseOf(typeof body === 'string' ? body : JSON.stringify(body), status, reply.headers ?? {});
+  };
+  return { calls, restore: () => { globalThis.fetch = original; } };
 }
 
 /** Run `fn` and report whether it threw, plus the message. */
@@ -66,4 +136,9 @@ export async function outcome(fn) {
   } catch (e) {
     return { threw: true, message: String(e?.message ?? e) };
   }
+}
+
+/** A reply body that is a real (if tiny) PDF — passes the `%PDF-` + size check. */
+export function fakePdf() {
+  return `%PDF-1.4\n${'% filler\n'.repeat(200)}`;
 }
