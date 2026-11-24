@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { installFetch, loadTools, reporter, fakePdf } from './harness.mjs';
+import { fileSlug } from '../lib/fulltext.js';
 
 const { check, done } = reporter();
 
@@ -20,7 +21,11 @@ mkdirSync(join(root, 'md'), { recursive: true });
 
 // A stale cache entry: a non-empty `.md` whose companion PDF is NOT a PDF (an
 // HTML error page an older plugin version wrote before `%PDF-` validation).
-const slug = 'doi-10.1038_nature14539';
+// The name comes from `fileSlug` rather than a literal: D13 made the slug
+// collision-free, and this test is about the cache NOTE, not about the naming
+// scheme — a hardcoded name would silently stop being the file the plugin looks
+// at, and the test would then pass by never reaching the path it checks.
+const slug = fileSlug({ doi: '10.1038/nature14539' });
 writeFileSync(join(root, 'md', `${slug}.md`), '# Cached conversion\n\nstale content\n');
 writeFileSync(join(root, 'md', `${slug}.pdf`), '<!doctype html><html>404 not found</html>');
 
