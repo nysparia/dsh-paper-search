@@ -1,13 +1,16 @@
 ---
 name: paper-search
 description: "Search scientific literature from 20 international sources (Crossref, ACM, IEEE, OpenAlex, DOAJ, PubMed, arXiv, bioRxiv, medRxiv, ChemRxiv, OpenReview, SSRN, etc.) and 3 Indonesian journal portals (Garuda, Sinta, IOS). Plus paper_detail (metadata + abstract, one or many at once), paper_citations (who cites whom), paper_oa (free copies), and paper_fulltext (open-access PDF -> Markdown). Use it to find papers, prior research, Indonesian literature, and to read a paper."
-whenToUse: "When the task involves scholarly articles or works: finding papers/journals/research articles, finding prior research, finding Indonesian national journals, tracking down a DOI, reading a paper's abstract or metadata, finding a free copy of a paper, tracing who cites a paper, or when a literature search comes back empty and you need to know which sources failed. Not for news, docs, or general web research — that is the job of search-cascade."
+whenToUse: "When the task involves scholarly articles or works: finding papers/journals/research articles, finding prior research, finding Indonesian national journals, tracking down a DOI, reading a paper's abstract or metadata, finding a free copy of a paper, tracing who cites a paper, or when a literature search comes back empty and you need to know which sources failed. Not for news, docs, or general web research — use the web search tools for those."
 ---
 
 # Paper Search — international literature + Indonesian journals (DSH)
 
 **Six capabilities**, all native over HTTP — no CLI or Python package
-needs to be installed:
+needs to be installed. **All six are free**: no credits, no API key, no account.
+When a billed literature tool in the same profile would answer the same question,
+call these first and fall back only for what they cannot do (Google Scholar
+citation formats, patents, author profiles, `auto_cite`, `sci_draw`).
 
 | Capability | Single-entry equivalent | Purpose |
 |---|---|---|

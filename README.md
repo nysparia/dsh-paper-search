@@ -8,6 +8,11 @@ registered but **off by default** (see [Sources off by default](#sources-off-by-
 Registered as the `paper-search` skill and six model tools (`paper_search`,
 `paper_status`, `paper_detail`, `paper_citations`, `paper_oa`, `paper_fulltext`).
 
+**Free.** No credits, no API key, no account — every tool. When a billed
+literature tool in the same profile would answer the same question, these are
+the ones to call first; see [`promptGuidance`](#plugin-options) for how the model
+is told that.
+
 > **This is an English fork of `dsh-paper-search` 0.4.1 by
 > [Rasyid](https://github.com/rasyidmmz).** The upstream repository returns 404,
 > so the fork was seeded from the npm tarball. Every comment, identifier, and
@@ -142,8 +147,25 @@ Restart DSH after installing.
 | Option | Default | Meaning |
 |---|---|---|
 | `tools` | `"five"` | `"five"` registers the six separate tools. `"one"` registers a **single** tool named `paper` with a `mode` parameter (`search` · `status` · `detail` · `citations` · `oa` · `fulltext`). |
+| `promptGuidance` | `true` | Register a system-prompt section stating that these tools are free. `false` skips it. |
+| `promptOrder` | `160` | Where that section sorts. 160 places it immediately after a billed literature plugin's section (order 150), so the free option is read right after the recommendation it qualifies. |
 | `anydocPath` / `markitdownPath` | auto-detected | Explicit path to the PDF→Markdown converter used by `paper_fulltext`. |
 | `libraryRoot` | `~/.dsh/paper-search` | Where downloaded PDFs and converted Markdown are kept. |
+
+**Why `promptGuidance` exists.** Registering tools is not the same as being
+chosen. A billed literature plugin in the same profile injects a section that
+ends with *"For literature questions, call the tools instead of guessing"* —
+measured on this machine, **5,047 characters, 30.7% of the entire system prompt,
+at order 150**, ahead of every tool document. This plugin registered six tools
+and said nothing, so the model reached for the billed ones and the user paid
+credits for answers OpenAlex gives away.
+
+The section added here is **1,164 characters** (1,242 in single-door mode), not
+5,000: it names the six capabilities, states they cost nothing, and draws the
+boundary — Google Scholar citation formats, patents, author profiles,
+`auto_cite`, and `sci_draw` stay with the billed tools. `systemPrompt` is read
+through `ctx.get()`, **not** added to `inject`, so a profile without that service
+still gets the tools (with a startup note saying the model was not told).
 
 **Why `tools: "one"` exists.** Every tool definition is sent to the model on
 **every request**. Measured 23 Nov 2026, after `paper_detail` was added:

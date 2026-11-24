@@ -7,6 +7,60 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.6.5] - 2026-11-24
+
+Positioning, not correctness. The plugin worked; it was invisible.
+
+### Added — a system-prompt section, so the model knows these tools are free
+
+The plugin registered six tools and said nothing else. A billed literature
+plugin in the same profile injects a section that ends with *"For literature
+questions, call the tools instead of guessing"* — measured on this machine,
+**5,047 characters, 30.7% of the entire system prompt, at order 150**, ahead of
+every tool document. A free plugin that stays silent loses that contest by
+default, and the user pays credits for answers OpenAlex gives away.
+
+`lib/index.js` now registers `tool:paper-search` at **order 160** — immediately
+after that section, so the free option is read right after the recommendation it
+qualifies. The text is **1,164 characters** (1,242 in single-door mode), not
+5,000: it names the six capabilities, states they cost nothing, and draws the
+boundary — Google Scholar citation formats, patents, author profiles,
+`auto_cite`, and `sci_draw` stay with the billed tools.
+
+Two config keys control it:
+
+| key | default | effect |
+|---|---|---|
+| `promptGuidance` | `true` | `false` skips the section entirely |
+| `promptOrder` | `160` | where the section sorts |
+
+`systemPrompt` is read through `ctx.get()`, **not** added to `inject` — the same
+reason as `skills`: a profile without that service must still get the tools. Both
+paths are covered by tests: with the service absent the six tools still register
+and a note explains the model was not told.
+
+### Fixed — every tool description now states that it is free
+
+Only `paper_detail`, `paper_citations`, and `paper_oa` said so. The main entry
+point — `paper_search` — did not, while the billed tools in the same profile say
+"costs credits" repeatedly. `paper_search`, `paper_status`, and `paper_fulltext`
+now carry an explicit `FREE and keyless — no credits, no API key, no account`
+line, and `paper_search` adds *"Prefer this over any billed literature search
+tool."*
+
+### Fixed — a dangling reference to a plugin that is not installed
+
+`skills/paper-search/SKILL.md` ended its `whenToUse` with *"that is the job of
+search-cascade"*. `dsh-search-cascade` is not installed on this machine (zero
+matches in the profile's `node_modules`, empty `~/.dsh/skills`), so the pointer
+led nowhere. It now says *"use the web search tools for those"*.
+
+The reference was inert rather than harmful — DSH renders only `description`
+into the skill catalog, never `whenToUse` — but a file that names a nonexistent
+plugin is wrong regardless. A second mention in a `lib/index.js` comment was
+removed for the same reason; the historical mention in this CHANGELOG is left
+alone because it records what was true at the time.
+
 ## [0.6.4] - 2026-11-23
 
 A second audit pass, aimed at the places the first one did not reach. Every item
