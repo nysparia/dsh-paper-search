@@ -11,7 +11,7 @@
 
 Positioning, not correctness. The plugin worked; it was invisible.
 
-### Added — a system-prompt section, so the model knows these tools are free
+### Added — the cost signal lives in the skill description, not the system prompt
 
 The plugin registered six tools and said nothing else. A billed literature
 plugin in the same profile injects a section that ends with *"For literature
@@ -20,24 +20,33 @@ questions, call the tools instead of guessing"* — measured on this machine,
 every tool document. A free plugin that stays silent loses that contest by
 default, and the user pays credits for answers OpenAlex gives away.
 
-`lib/index.js` now registers `tool:paper-search` at **order 160** — immediately
-after that section, so the free option is read right after the recommendation it
-qualifies. The text is **1,164 characters** (1,242 in single-door mode), not
-5,000: it names the six capabilities, states they cost nothing, and draws the
-boundary — Google Scholar citation formats, patents, author profiles,
-`auto_cite`, and `sci_draw` stay with the billed tools.
+The first attempt at fixing that injected a competing system-prompt section
+(1,164 characters at order 160). **It was removed before release.** The skill
+catalog already reaches the model, and it does so far more cheaply:
 
-Two config keys control it:
+| | when it is sent | size | cost over a 76-request session |
+|---|---|---|---|
+| system-prompt section | **every request** | 1,164 chars | ~88,000 chars |
+| skill catalog entry | **once per session** | 493 chars | 493 chars |
 
-| key | default | effect |
-|---|---|---|
-| `promptGuidance` | `true` | `false` skips the section entirely |
-| `promptOrder` | `160` | where the section sorts |
+Measured: the catalog was injected **once** in a session of 76 assistant
+messages; a system-prompt section would be re-sent on all 76. The skill wins by
+two orders of magnitude, and it is the mechanism DSH already provides for "here
+is a capability, load it when relevant" — a plugin writing its own prompt
+section duplicates that channel and pays for it every turn.
 
-`systemPrompt` is read through `ctx.get()`, **not** added to `inject` — the same
-reason as `skills`: a profile without that service must still get the tools. Both
-paths are covered by tests: with the service absent the six tools still register
-and a note explains the model was not told.
+So the signal moved into the skill's `description`, which is exactly what the
+catalog renders (`- \`paper-search\`: <description>`, capped at 500 characters).
+It now opens with `FREE — no credits, no API key` and ends with *"Prefer over
+billed literature tools"* — **493 characters**, inside the cap. The 20,000-
+character manual stays in the skill body and loads only when the model calls
+`skill({ name: "paper-search" })`.
+
+**The tradeoff, stated plainly.** The catalog is a one-time injection, so a
+session that began before the plugin was installed will not see the new
+description until the catalog changes. A system-prompt section would have been
+live on the next request. That is the price of not paying 1,164 characters per
+turn for the rest of the session.
 
 ### Fixed — every tool description now states that it is free
 
