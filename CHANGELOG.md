@@ -7,6 +7,176 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.9.0] - 2026-11-24
+
+A third audit round, this time over the 23 CONNECTORS — the code that turns each
+platform's reply into a paper. 36 defects were reproduced before any of them was
+touched. Each has a regression test that fails on 0.8.0 and passes here.
+
+The shape is the same one the first two rounds kept finding, and the connectors
+are where it hides best: **a value the platform reported was never asked for, and
+a platform failure was reported as a claim about the corpus.**
+
+### Fixed — a value the platform reported was never requested
+
+- **`semantic` never asked for `citationCount`.** The `fields` list omitted it, so
+  `citedBy` was always `null` and `min_citations` silently emptied the source:
+  `Filter: citations >= 10 — 0 below the threshold · 2 DROPPED because the source
+  does not report a citation count`. Semantic Scholar reports the number (verified
+  live: 204,725 on a real paper). This is the Crossref `is-referenced-by-count`
+  defect from 0.7.0, repeated in a different connector.
+- **`europepmc` never mapped `citedByCount`.** Europe PMC's reply carries it; the
+  connector left `citedBy` null, with the same consequence.
+- **`pubmed`, `pmc` and `europepmc` never mapped the work type.** PubMed's
+  `esummary` carries `pubtype: ["Journal Article", "Review"]` and Europe PMC
+  carries `pubType`. Neither was read, so `kind` kept everything AND the reply
+  said "the source does not state its kind" — which was false. Measured after the
+  fix: `kind: 'article'` on a PubMed query drops 7 of 8, `kind: 'review'` keeps
+  all 8, `kind: 'preprint'` drops all 8. Note PubMed puts the GENERIC entry first,
+  so `pubtype[0]` would have been wrong; the whole list is folded.
+
+### Fixed — a platform failure reported as a claim about the corpus
+
+- **`pubmed` / `pmc` turned an HTTP 200 error body into "0 results".** E-utilities
+  answer `{"esearchresult":{"ERROR":"Search Backend failed: …"}}` with status 200
+  for a transient backend failure. The connector read the absent `idlist`, got
+  `[]`, and the reply printed `OK PubMed api 0 results` + `NO results passed the
+  filter`. A transient failure is now a FAILED line.
+- **`iacr` reported a markup change as a valid empty answer.** The zero-result
+  guard was keyed on the anchor count, so when the `paperlink` anchors were found
+  but the title element inside them changed, every record was pushed with
+  `title: null`, the filter emptied the list, and the connector returned `[]` with
+  `error: null` — indistinguishable from "IACR has no paper matching this query".
+  The guard is now keyed on the parsed result.
+- **The three Indonesian portals turned page chrome into papers.** The result
+  patterns ran over the whole document, so any matching anchor outside the result
+  list became a paper: a genuine zero-result page plus a sidebar widget yielded
+  `papers=1`, and IOS's pagination link `<a href="/Record/12345" class="title">Next</a>`
+  became a paper titled **"Next"**. The reply then printed `OK Garuda html 1
+  results` and a fabricated record with a real-looking URL.
+- **`portalHasNoResults` was a whole-page substring test.** A maintenance page
+  carrying the site's own `"Found 0 documents"` template, a Sinta author-profile
+  page containing "Results for:", and an IOS JSON error envelope containing
+  "No Results!" all came back as `0-RESULTS (error:null)` — breaking the one
+  promise the reply makes about empty answers. The marker must now START a text
+  node inside the result region, and Sinta's header must echo the query actually
+  sent.
+- **`getText` followed redirects to any host.** A 302 to a foreign host was parsed
+  and attributed to the source, with the source's URLs rebuilt from the foreign
+  page's ids. A cross-host redirect is now an error naming both hosts.
+
+### Fixed — a value the platform did not report turned into a definite value
+
+- **`semantic` claimed open access for a paper it marked CLOSED.** Semantic
+  Scholar returns `openAccessPdf` as a NON-NULL object with an EMPTY url for a
+  closed paper, so `!!d.openAccessPdf` was true: the list printed `· open access`
+  and `open_access_only` kept it. The object is no longer tested; `isOpenAccess`
+  is read when present and the URL otherwise.
+- **`makePaper` printed a DOI that was not a DOI.** `normalizeDoi` is a
+  normalizer, not a validator, so a source returning `DOI: 'not a doi'` had it
+  printed in the `doi:` slot and turned into a `https://doi.org/not a doi` link.
+  `isDoi` now gates it.
+- **`makePaper` / `fromOpenAlexWork` / `zenodoOpenAccess` collapsed "not reported"
+  to `false`** for open access, so the search record said `openAccess: false`
+  while `paper_oa` on the same work said `reported: false`. All three now carry
+  `true|false|null`, matching `summarizeOA`.
+- **`paper_oa` listed 10 copies and called it the total.** `summarizeOA` stops
+  after 10 locations; a work with 15 printed `copies found: 10` and nothing said
+  five were left out.
+- **`workNumber('   ')` returned `0`.** Only `''` was guarded, so a
+  whitespace-only string became "0 citations".
+
+### Fixed — reporting
+
+- **A retracted paper beyond the display cap was described as "listed below".**
+  With 45 papers whose only retracted one was #45, the warning said "they are
+  still listed below, marked" — but only the first 40 are listed. The one
+  sentence that exists to protect the reader from citing a retracted paper
+  pointed at a paper they could not see. The two cases are now counted and worded
+  separately, and the ones that fell off the end are NAMED.
+- **`paper_status` said keyed sources are not cached**, which is the opposite of
+  what the code does: the cache key carries one bit saying a credential was sent.
+  The two sources that ARE skipped are `core` (cannot work without a key) and
+  `unpaywall` (takes a DOI), and both are now named with their reason.
+- **The three portals' `journal` was the source label** (`"Garuda (Indonesian
+  journal)"`), printed in the journal slot. It is now null and the reply prints
+  "journal not reported".
+- **A portal's page count was presented as the corpus count.** `max_results: 50`
+  against a 10-result page printed `OK Garuda html 10 results`; the line now ends
+  `— first page only; more may exist`.
+
+### Fixed — the shared text helpers
+
+`cleanText`, `decodeEntities` and `truncateClean` are on the path of all 23
+sources, so a defect there is not a portal problem.
+
+- **`cleanText` deleted text between a bare `<` and the next `>`.** A title
+  containing a comparison lost its middle: `"Pengaruh X < 5 terhadap Y > Z"` →
+  `"Pengaruh X Z"`. The tag pattern now requires what a tag starts with (a letter,
+  `!` or `?`), so `< 5` survives while `<b>`, `</b>`, `<jats:p>`, `<!-- … -->` and
+  `<?xml … ?>` are still stripped.
+- **`decodeEntities` knew six named entities**, so `&eacute;`, `&rsquo;` and
+  `&mdash;` — ordinary CMS output — survived verbatim into titles. The table now
+  covers Latin-1 plus the punctuation and symbols that appear in bibliographic
+  text.
+- **`truncateClean` sliced by UTF-16 code unit**, so a 300-unit cut could split a
+  surrogate pair and leave a lone high surrogate, which a UTF-8 round trip turns
+  into U+FFFD. It now slices by code point.
+
+### Fixed — transport
+
+- **`getText` read the whole body with no size cap** (an 8 MB page cost +28–37 MB
+  RSS) and **ignored a declared charset** (a `charset=iso-8859-1` page produced
+  `"Pengaruh M\uFFFDdia Sosial"`). The body is now streamed against a 4 MiB cap
+  and decoded with the declared charset.
+- **`getText` did not check `content-type`**, so an HTML-expecting call parsed a
+  JSON error envelope. A 2xx reply whose type contradicts the request is now an
+  error; an absent header, `octet-stream` and `text/plain` still pass.
+
+### Fixed — the arXiv path
+
+- **The loose fallback re-sent an identical query.** For a single-word query
+  `arxivQuery(q, true)` and `arxivQuery(q, false)` are the same string, so the
+  fallback waited out arXiv's 3-second self-throttle to repeat a request that
+  could not return anything different.
+- **An operator-only query became `all:AND`, which arXiv rejects with HTTP 400.**
+  Verified live. `arxivQuery` now returns `null` so the caller skips the request.
+- **`parseArxiv` matched `<entry>` literally**, so `<entry xml:base="…">` yielded
+  zero papers with `error: null`. A feed that HAS entries but parses none is now
+  an error.
+- **`+` was not stripped**, so `arxivQuery('foo+bar', true)` returned the single
+  term `all:foo+bar`, which arXiv read as the loose `all:foo bar` — a precise AND
+  search quietly became an OR search. **Stated limitation:** arXiv's query
+  language cannot express `+` at all, so `C++` still searches `C`; measured live,
+  `all:C++`, `all:C%2B%2B` and `all:"C++"` all return the same 182,461 carbon-12
+  results.
+- **`isArxivId` rejected old-style ids** (`hep-th/9901001`) and `arxivIdFromUrl`
+  kept a trailing `/` and returned null on a `?query`. Both verified live.
+
+### Changed
+
+- **`canonicalKind` moved from `lib/index.js` to `lib/sources.js`** and is
+  re-exported, so the connectors can map a platform's own type vocabulary without
+  `lib/sources.js` depending on `lib/index.js`.
+- **`parseArxiv` is exported** so the seven XML shapes can be tested without
+  spending 20 seconds asleep in the arXiv throttle. Nothing outside `test/` calls
+  it.
+- **`makePaper` gained `authorCount`**, so a truncated author list is visible
+  without changing the printed reply.
+- **A body over 4 MiB is refused, not truncated.** An 8 MB page loses its results
+  entirely and becomes a FAILED line naming the cap. 4 MiB is above every
+  legitimate reply measured (OpenAlex 1.37 MB at 100/page, Crossref 3.13 MB at
+  `rows=1000`; the plugin clamps `max_results` to 50, so the real maximum is
+  ~0.7 MB).
+
+### Tests
+
+117 files, up from 81. Every new file fails on 0.8.0 and passes here. Four fix
+branches were written in parallel and each started numbering at d91, so the
+numbers were renumbered into contiguous blocks at merge: d91–d94 argument
+handling, d95–d99 portals, d100–d107 XML/repository, d108–d119 JSON connectors,
+d120–d123 transport.
+
 ## [0.8.0] - 2026-11-24
 
 A second audit round, this time over the three files the first round touched
