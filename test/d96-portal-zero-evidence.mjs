@@ -1,4 +1,4 @@
-// test/d92-portal-zero-evidence.mjs — a zero-result marker found ANYWHERE on the
+// test/d96-portal-zero-evidence.mjs — a zero-result marker found ANYWHERE on the
 // page certified "the portal answered zero".
 //
 // THE DEFECT. `portalHasNoResults` was

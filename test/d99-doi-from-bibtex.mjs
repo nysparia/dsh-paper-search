@@ -1,4 +1,4 @@
-// test/d95-doi-from-bibtex.mjs — a BibTeX placeholder was accepted as a DOI.
+// test/d99-doi-from-bibtex.mjs — a BibTeX placeholder was accepted as a DOI.
 //
 // THE DEFECT. `doiFromBibtex` returned whatever sat between the braces, and
 // `normalizeDoi` only requires more than three characters, so an OpenReview

@@ -1,4 +1,4 @@
-// test/d93-portal-capture-bounds.mjs — an unclosed tag merged two records into
+// test/d97-portal-capture-bounds.mjs — an unclosed tag merged two records into
 // one garbage title, a `>` inside an attribute value broke the whole page, and a
 // 220-character cap turned a long journal name into a "markup change".
 //

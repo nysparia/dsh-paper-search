@@ -1,4 +1,4 @@
-// test/d94-portal-record-and-line.mjs — what the portal record and the per-source
+// test/d98-portal-record-and-line.mjs — what the portal record and the per-source
 // line claim, when the portal reported neither.
 //
 // THE DEFECTS, measured 24 Nov 2026 on 0.8.0.

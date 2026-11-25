@@ -1,4 +1,4 @@
-// test/d91-portal-result-region.mjs — the result pattern ran over the WHOLE
+// test/d95-portal-result-region.mjs — the result pattern ran over the WHOLE
 // page, so any matching anchor outside the result list became a paper.
 //
 // THE DEFECT. `garuda`, `sinta` and `ios` matched their result pattern against
