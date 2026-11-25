@@ -35,10 +35,13 @@ const realFetch = globalThis.fetch;
 
 /** Serve one canned HTML body for every request. */
 function serve(html) {
-  globalThis.fetch = async () => ({
+  // `url` echoes the request, which is what a same-host reply does. A fixed
+  // foreign URL here would be a claimed cross-host redirect, and `getText`
+  // refuses one of those on purpose.
+  globalThis.fetch = async (input) => ({
     ok: true,
     status: 200,
-    url: 'https://example.invalid/',
+    url: typeof input === 'string' ? input : String(input?.url ?? input),
     headers: { get: () => null },
     text: async () => html,
   });

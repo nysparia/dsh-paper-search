@@ -1,4 +1,4 @@
-// test/d92-gettext-content-type.mjs — a JSON envelope must not be parsed as an
+// test/d121-gettext-content-type.mjs — a JSON envelope must not be parsed as an
 // HTML result page, and an HTML error page must not be parsed as JSON.
 //
 // THE DEFECT. `getText` never looked at `content-type`. Measured 24 Nov 2026
@@ -109,4 +109,4 @@ function serve(body, contentType, status = 200) {
 }
 
 globalThis.fetch = realFetch;
-done('D92 getText: content-type');
+done('D121 getText: content-type');

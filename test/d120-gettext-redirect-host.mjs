@@ -1,4 +1,4 @@
-// test/d91-gettext-redirect-host.mjs — a body served from another host is not
+// test/d120-gettext-redirect-host.mjs — a body served from another host is not
 // this source's answer.
 //
 // THE DEFECT. `getText` fetched with `redirect: 'follow'` and never looked at
@@ -104,4 +104,4 @@ function serve(body, finalUrl, { status = 200, contentType = 'text/html' } = {})
 }
 
 globalThis.fetch = realFetch;
-done('D91 getText: a redirect to another host');
+done('D120 getText: a redirect to another host');

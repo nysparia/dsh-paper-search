@@ -1,4 +1,4 @@
-// test/d94-gettext-body-cap.mjs — the body is bounded while it is read, not
+// test/d123-gettext-body-cap.mjs — the body is bounded while it is read, not
 // after it is in memory.
 //
 // THE DEFECT. `getText` called `await res.text()`, which buffers whatever the
@@ -127,4 +127,4 @@ const bigPage = () => [
 }
 
 globalThis.fetch = realFetch;
-done('D94 getText: body size cap');
+done('D123 getText: body size cap');

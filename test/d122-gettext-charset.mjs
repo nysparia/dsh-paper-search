@@ -1,4 +1,4 @@
-// test/d93-gettext-charset.mjs — a declared charset must be honoured, not
+// test/d122-gettext-charset.mjs — a declared charset must be honoured, not
 // decoded as UTF-8.
 //
 // THE DEFECT. `getText` called `res.text()`, which decodes as UTF-8 and ignores
@@ -91,4 +91,4 @@ async function title() {
 }
 
 globalThis.fetch = realFetch;
-done('D93 getText: declared charset');
+done('D122 getText: declared charset');
