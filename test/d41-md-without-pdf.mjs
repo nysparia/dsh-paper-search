@@ -97,22 +97,32 @@ check('the note does NOT claim the PDF was "not valid" (it was absent)',
   !/not valid/i.test(h.cacheNote ?? ''),
   h.cacheNote ?? '(no cacheNote)');
 
-// ── 2. The cheap path must survive: a .md WITH a valid PDF is still a hit ───
+// ── 2. The cheap path must survive: a REAL cache entry is still a hit ───────
+//
+// This fixture used to write the `.md` by hand and expect a hit. That is exactly
+// the state H1 removes: a hand-written `.md` carries no completion marker, so
+// nothing proves it is a COMPLETE conversion — it is indistinguishable from the
+// 29-byte truncated file in the audit. A real cache entry is what this function
+// itself writes (the `.md`, the PDF it came from, and the marker recording that
+// the conversion finished), so the fixture now produces one by running the
+// conversion once. The assertion keeps its original meaning: the cache still
+// works, and the body served is the body that was converted.
 const root2 = join(tmpdir(), `dsh-d41-hit-${process.pid}`);
 rmSync(root2, { recursive: true, force: true });
 mkdirSync(join(root2, 'md'), { recursive: true });
-const slug2 = fileSlug({ doi: DOI });
-writeFileSync(join(root2, 'md', `${slug2}.md`), '# VERIFIED CONTENT\n');
-writeFileSync(join(root2, 'md', `${slug2}.pdf`), fakePdf());
 
 const mock2 = servePdf();
+const first = await prepareFullText({ work: workFor(DOI), identifier: DOI, converter, root: root2, findArxiv: async () => null });
 const hit = await prepareFullText({ work: workFor(DOI), identifier: DOI, converter, root: root2, findArxiv: async () => null });
 mock2.restore();
+check('the fixture really is a cache entry this plugin wrote (converted once, then hit)',
+  first.problem === null && first.fromCache === false && existsSync(first.md) && existsSync(`${first.md}.json`),
+  `first: problem=${first.problem} fromCache=${first.fromCache}`);
 check('a .md WITH a valid PDF is still served from the cache',
   hit.fromCache === true && hit.used?.note === 'already converted',
   `fromCache=${hit.fromCache} used=${JSON.stringify(hit.used)}`);
 check('the verified content is what comes back',
-  readFileSync(hit.md, 'utf8').includes('VERIFIED CONTENT'));
+  readFileSync(hit.md, 'utf8').includes('Converted paper'));
 check('a real cache hit sets no cacheNote', !hit.cacheNote, hit.cacheNote ?? '(none)');
 
 // ── 3. A DAMAGED PDF keeps its own, different wording ──────────────────────

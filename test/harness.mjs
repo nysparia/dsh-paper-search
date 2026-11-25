@@ -103,10 +103,24 @@ export function fakeCredentials(values, source = 'file') {
 /** Build one fetch Response-shaped object from a body string. */
 function responseOf(body, status = 200, headerMap = {}) {
   const headers = new Map(Object.entries(headerMap).map(([k, v]) => [k.toLowerCase(), String(v)]));
+  const bytes = Buffer.from(body);
   return {
     ok: status >= 200 && status < 300,
     status,
     headers: { get: (k) => headers.get(String(k).toLowerCase()) ?? null },
+    // A real `fetch` reply carries a readable stream, and `downloadPdf` streams
+    // it so the size cap can abort a transfer in progress. A stub without one
+    // would leave that path untested by every test in this suite, so the stub
+    // provides one — a FRESH stream per access, because a stream can only be
+    // read once and some callers still use `text()`/`arrayBuffer()`.
+    get body() {
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(bytes));
+          controller.close();
+        },
+      });
+    },
     text: async () => body,
     json: async () => JSON.parse(body),
     arrayBuffer: async () => Buffer.from(body),
@@ -164,7 +178,14 @@ export async function outcome(fn) {
   }
 }
 
-/** A reply body that is a real (if tiny) PDF — passes the `%PDF-` + size check. */
+/**
+ * A reply body that is a real (if tiny) PDF — passes the `%PDF-` + size check.
+ *
+ * The `%%EOF` trailer is not decoration: `checkPdf` requires it, because
+ * `"%PDF-" + 2000 NUL bytes` used to be called a valid PDF when the magic
+ * prefix was the only test. A fixture without the trailer would be testing a
+ * body the plugin now (correctly) refuses.
+ */
 export function fakePdf() {
-  return `%PDF-1.4\n${'% filler\n'.repeat(200)}`;
+  return `%PDF-1.4\n${'% filler\n'.repeat(200)}%%EOF\n`;
 }
