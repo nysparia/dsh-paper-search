@@ -44,15 +44,18 @@ const KEYED_SOURCE_IDS = cacheModule.KEYED_SOURCE_IDS ?? new Set();
 
 // ── 1. The rule, per source ─────────────────────────────────────────────────
 
-// The two sources the audit measured, plus the rest of the keyed set. Each is
-// named explicitly rather than derived, so a change to the list has to be made
-// in two places on purpose.
-for (const id of ['semantic', 'doaj', 'openalex', 'core', 'ssrn', 'biorxiv', 'medrxiv', 'chemrxiv']) {
+// A source that merely USES a key when one is present stays CACHEABLE: the key
+// carries a `keyed` bit instead, so a keyed answer and an unkeyed answer occupy
+// different entries. Disabling the cache for these was the first fix and it cost
+// 9 of the 21 default sources their cache hit, `openalex` among them.
+for (const id of ['semantic', 'doaj', 'openalex', 'ssrn', 'biorxiv', 'medrxiv', 'chemrxiv']) {
   const source = findSource(id);
-  check(`${id} is NOT cacheable (its request carries a key)`,
-    source !== null && isCacheable(source) === false,
+  check(`${id} IS cacheable (the key carries the credential bit instead)`,
+    source !== null && isCacheable(source) === true,
     source === null ? 'source not found' : `isCacheable=${isCacheable(source)} credit=${JSON.stringify(source.credit)}`);
 }
+// `core` cannot work WITHOUT its key, so it is skipped on the REQUIRED rule.
+check('core is NOT cacheable (it cannot work without a key)', isCacheable(findSource('core')) === false);
 
 // The other half of the rule: a source that reads NO key must still be cached,
 // or the "fix" is just "disable the cache".
@@ -140,12 +143,16 @@ check('the unkeyed call does not claim a cache hit',
   !/served from CACHE/i.test(reply2),
   reply2.split('\n').filter((l) => /CACHE/i.test(l)).join(' | ') || 'clean');
 
-// The cache file must not contain the keyed answer under any key at all — that
-// is the stronger statement, and it is what "skipped" means.
+// The keyed answer IS stored — under a key that carries `keyed: true` — and the
+// unkeyed caller cannot reach it. That is the whole point of the bit: the cache
+// keeps working for a keyed source without ever crossing the two answers.
 const cache = createCache({ file });
-check('nothing at all was stored for the keyed source',
-  cache.status().count === 0,
+check('the keyed answer was stored (the cache still works for a keyed source)',
+  cache.status().count > 0,
   `count=${cache.status().count}`);
+check('the keyed and unkeyed answers occupy DIFFERENT entries',
+  cacheKey('semantic', 'graph neural networks', { rows: 5, keyed: true })
+  !== cacheKey('semantic', 'graph neural networks', { rows: 5, keyed: false }));
 
 // ── 4. The fix must not be "disable the cache" ─────────────────────────────
 //
@@ -194,20 +201,21 @@ check('force_refresh still bypasses the cache', crossrefCalls === 2, `${crossref
 check('force_refresh is reported', /force_refresh active/i.test(replyC),
   replyC.split('\n').filter((l) => /force_refresh/i.test(l)).join(' | ') || 'no line');
 
-// ── 5. The cost is stated, not hidden ───────────────────────────────────────
+// ── 5. The default sources keep their cache ─────────────────────────────────
 //
-// `openalex` is in DEFAULT_IDS, so this fix removes the cache hit from the most
-// common search. `paper_status` lists which sources are cached and which are
-// skipped; that line is the only place a user can learn it.
-const mock3 = installFetch(() => ({ body: {} }));
-const status = await loadTools({ cache: true, libraryRoot: root, cacheFile: file }).get('paper_status').execute({});
-mock3.restore();
-const cacheLine = status.split('\n').find((l) => /ARE CACHED/i.test(l)) ?? '';
-check('paper_status names the skipped sources', /SKIPPED/i.test(cacheLine), cacheLine || 'no cache line');
-for (const id of ['semantic', 'doaj', 'openalex']) {
-  check(`paper_status lists ${id} among the SKIPPED sources`,
-    new RegExp(`SKIPPED[^\\n]*\\b${id}\\b`).test(cacheLine),
-    cacheLine);
+// The first fix disabled the cache for every keyed source, which cost 9 of the
+// 21 default sources their cache hit — `openalex` among them, the plugin's
+// biggest measured win. The bit must not bring that cost back.
+{
+  const { DEFAULT_IDS } = await import('../lib/sources.js');
+  // `core` (REQUIRED key) and `unpaywall` (DOI input) were ALREADY uncacheable
+  // before this fix, for reasons that have nothing to do with the credential
+  // bit. Everything else must still be cached.
+  const ALREADY_SKIPPED = new Set(['core', 'unpaywall']);
+  const lost = DEFAULT_IDS.filter((id) => !ALREADY_SKIPPED.has(id) && !isCacheable(findSource(id)));
+  check('no default source lost its cache to this fix',
+    lost.length === 0,
+    lost.length ? `lost: ${lost.join(', ')}` : `${DEFAULT_IDS.length - ALREADY_SKIPPED.size} default sources still cacheable`);
 }
 
 // ── 5. The key itself never reaches the cache file ──────────────────────────
