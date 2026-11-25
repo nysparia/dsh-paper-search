@@ -126,8 +126,18 @@ rmSync(root, { recursive: true, force: true });
 mkdirSync(join(root, 'md'), { recursive: true });
 
 // Paper A was converted earlier: its `.md` is on disk under A's slug.
+//
+// The companion PDF is written too, and that is not decoration. A `.md` with NO
+// PDF beside it is no longer a cache hit — D41 (`test/d41-md-without-pdf.mjs`)
+// made a missing PDF a MISS, because its content cannot be verified against
+// anything. This fixture used to write the `.md` alone, which meant the "paper A
+// is still a cache hit" assertion below was passing on the very defect D41
+// removes. A real cache entry is a `.md` AND the PDF it was converted from, so
+// that is what the fixture now writes; the assertion keeps its original meaning
+// (the cache still works, and the collision fix did not disable it).
 const slugA = fileSlug({ doi: PAPER_A });
 writeFileSync(join(root, 'md', `${slugA}.md`), PAPER_A_CONTENT);
+writeFileSync(join(root, 'md', `${slugA}.pdf`), fakePdf());
 
 const mock = installFetch((url) => {
   if (url.includes('example.org/b.pdf')) return { body: fakePdf(), headers: { 'content-type': 'application/pdf' } };
