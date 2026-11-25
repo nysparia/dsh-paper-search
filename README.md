@@ -368,8 +368,11 @@ preview plus the `read({ file_path, offset, limit })` call to continue with.
 
 Measured 2026-09-29: *Attention Is All You Need* (2.1 MB PDF) → **39.8 KB of
 Markdown in 424 ms**; a PLOS ONE paper (2.9 MB) → **70.8 KB in 363 ms**, with
-reference links intact. End to end through the tool, including download and the
-arXiv lookup: **2.4–4.4 s**, and **0.3 s** when the file already exists.
+reference links intact. End to end through the tool, measured 2026-11-24 on
+0.8.0: **11.8 s** for a paper not yet on disk (download + convert), and **1 ms**
+when the Markdown is already there — an arXiv id's file name comes from the id,
+so a cache hit needs no network at all. Before 0.8.0 that repeat cost 5.4 s,
+because the file name came from the title and the title had to be fetched first.
 
 Install a converter (neither is bundled):
 
@@ -481,10 +484,13 @@ the whole plugin failed to load. **0.1.0 is unusable; use 0.1.1.**
 Every result separates **sources that failed** from sources that answered:
 
 ```
-  v Crossref            3 results  (2316 ms)
-  x Semantic Scholar    FAILED — HTTP 429 — {"message": "Too Many Requests...
-  v Garuda              3 results  (1428 ms)
+  OK     Crossref           api       3 results  (2316 ms)
+  FAILED Semantic Scholar   api     HTTP 429 — {"message": "Too Many Requests...
+  OK     Garuda             html      3 results  (1428 ms)
 ```
+
+A source served from the cache says `(cached)` where the timing goes: it was not
+asked at all, so a millisecond figure there would read as "answered instantly".
 
 A source that fails is never allowed to masquerade as "no results". This is not
 a detail: a widely-used tool in this space returns an empty list for *every*
