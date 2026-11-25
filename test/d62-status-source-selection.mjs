@@ -105,4 +105,27 @@ h.restore();
     r.split('\n').find((l) => /repeated/.test(l)) ?? 'SILENT');
 }
 
+// ── 5. A cached source is MARKED in the per-source list ─────────────────────
+//
+// It used to print "(0 ms)", which reads as "this source answered instantly" —
+// the opposite of the truth, which is that it was not asked at all. The summary
+// line does say how many were served from cache, but a reader who skims the
+// per-source list sees only the timings.
+{
+  const { rmSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const file = join(tmpdir(), `dsh-d62-cache-${process.pid}.json`);
+  rmSync(file, { force: true });
+  const hc = installFetch(() => ({ body: { message: { items: [
+    { DOI: '10.1234/a', title: ['A'], issued: { 'date-parts': [[2020]] }, 'is-referenced-by-count': 3 },
+  ] } } }));
+  await loadTools({ cache: true, cacheFile: file }).get('paper_search').execute({ query: 'x', sources: 'crossref' });
+  const second = await loadTools({ cache: true, cacheFile: file }).get('paper_search').execute({ query: 'x', sources: 'crossref' });
+  hc.restore();
+  rmSync(file, { force: true });
+  const line = second.split('\n').find((l) => /^  OK/.test(l));
+  check('a cached source says "cached", not "0 ms"', /\(cached\)/.test(line ?? ''), line ?? 'no OK line');
+}
+
 done('D62 paper_status source selection');
