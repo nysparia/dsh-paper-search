@@ -162,25 +162,25 @@ function referenceLessCandidates(n) {
 
 // ── 7. paper_oa does not call missing data "closed" ──────────────────────────
 //
-// This one needs `summarizeOA` (lib/sources.js) to return `isOa: null` for a work
-// whose reply carries no `open_access` block. The index.js side is ready for it;
-// until that branch lands the old `false` flows through and these two assertions
-// would fail for a reason outside this file. They are kept so the merge is
-// checked, and skipped while the dependency is missing.
+// This needs `summarizeOA` (lib/sources.js) to report a missing `open_access`
+// block as `isOa: null, reported: false` rather than `false`. Both halves are in
+// place now, so the assertion is unconditional.
 {
-  const { summarizeOA } = await import('../lib/sources.js');
-  const reportsUnknown = summarizeOA({ id: 'W1', title: 'x' }).isOa === null;
-  if (!reportsUnknown) {
-    console.log('SKIP  paper_oa unknown-vs-closed — summarizeOA still returns false for a missing block (lib/sources.js, other branch)');
-  } else {
-    const tools = loadTools();
-    const h = installFetch(() => ({ body: { id: 'https://openalex.org/W1', title: 'No OA field', publication_year: 2020 } }));
-    const r = await tools.get('paper_oa').execute({ identifier: 'W1' });
-    h.restore();
-    check('a work with no open_access block is NOT reported as closed',
-      !/NOT OPEN ACCESS/.test(r), r.split('\n').find((l) => /access status/.test(l)));
-    check('it says the status was NOT REPORTED', /NOT REPORTED/.test(r));
-  }
+  const tools = loadTools();
+  const h = installFetch(() => ({ body: { id: 'https://openalex.org/W1', title: 'No OA field', publication_year: 2020 } }));
+  const r = await tools.get('paper_oa').execute({ identifier: 'W1' });
+  h.restore();
+  check('a work with no open_access block is NOT reported as closed',
+    !/NOT OPEN ACCESS/.test(r), r.split('\n').find((l) => /access status/.test(l)));
+  check('it says the status was NOT REPORTED', /NOT REPORTED/.test(r));
+}
+// The other half: a work that IS reported closed must still say so.
+{
+  const tools = loadTools();
+  const h = installFetch(() => ({ body: { id: 'https://openalex.org/W1', title: 'Closed', publication_year: 2020, open_access: { is_oa: false, oa_status: 'closed' } } }));
+  const r = await tools.get('paper_oa').execute({ identifier: 'W1' });
+  h.restore();
+  check('a work reported CLOSED still says NOT OPEN ACCESS', /NOT OPEN ACCESS/.test(r));
 }
 
 done('D47 citation map and paper_oa reporting');

@@ -9,9 +9,98 @@
 
 ## [0.7.0] - 2026-11-24
 
-Five defects found by auditing the storage layer — the search cache and the
-full-text pipeline — against the principles each file states about itself. Four
-of the five are cases where the code contradicted its own comment.
+A full audit of 0.6.9 — every file, every tool, every connector — and the fixes
+for what it found. 48 defects were reproduced before any of them was touched;
+the ones below are the ones fixed here. Each has a regression test that fails on
+0.6.9 and passes on this commit.
+
+The single most common shape among them: **a value the platform did not report
+was turned into a definite value.** An unknown citation count printed as `0`, a
+missing `open_access` block reported as "closed", a failed lookup reported as
+"genuinely absent", a `.md` with no PDF served as a verified cache hit. In each
+case the reply was confident and wrong, which is worse than an error.
+
+### Fixed — the tool layer (`lib/index.js`)
+
+Thirty defects. The ones that changed an answer rather than a message:
+
+- `max_results` was never truncated, so `7.5` reached Crossref, DOAJ, OpenAlex
+  and Zenodo and all four answered HTTP 400 — four sources dead from one
+  argument, while the parameter is documented "1-50".
+- `open_access_only` was read as truthiness, so the string `"false"` **applied**
+  the filter.
+- `year_from` that was invalid or ≤1500 was silently ignored while an invalid
+  `min_citations` was reported; `2020.7` excluded a 2020 paper.
+- the year filter never counted the works it dropped as too old.
+- a repeated source id cost a repeated request and was counted as a second
+  source; a group keyword mixed with an id (`"all,pmc"`) was reported as an
+  unknown source and discarded.
+- the early return for "no source could answer" hardcoded a neutral filter
+  block, so every filter warning was lost on that path.
+- `paper_status` called a missing credential FAILED while `paper_search` called
+  it skipped; it silently widened a group keyword to all 23 sources (22 probe
+  requests for `"indonesia"`); `clear_cache` was a silent no-op with the cache
+  disabled.
+- `paper_detail` returned `"FAILED: …"` for an unresolvable title while
+  `paper_oa` and `paper_citations` threw; a 429 was reported as "genuinely
+  absent from OpenAlex"; a batch `[TITLE, DOI]` came back as `[DOI, TITLE]`; the
+  same paper given twice was listed twice; the request count was printed only in
+  batch mode and under-counted when a title failed.
+- `direction: "cites"` silently resolved to `references` — the opposite meaning.
+- the citation map printed one message for "shares no references" and "has no
+  reference list"; its LIMITS line described behaviour the code does not have;
+  the cluster list was capped at 6 while the header stated the true count;
+  `max_candidates` was clamped silently.
+- a malformed key blocked searches that never used it — each key is now resolved
+  only when a selected source needs it.
+- FWCI and field percentile vanished when the citation count was unknown;
+  publisher and publication_date were fetched and never printed; an arXiv-only
+  work printed `id: -` above the arXiv id it has.
+
+### Fixed — the storage layer (`lib/cache.js`, `lib/fulltext.js`)
+
+Five defects, four of them cases where the code contradicted its own comment.
+
+- the cache key ignored the credential, so a keyed answer was served to an
+  unkeyed caller. The key now carries one bit — *was a credential sent* — so the
+  two answers occupy different entries without disabling the cache for the 19 of
+  21 default sources that keep it.
+- a `.md` with no companion PDF was served as a verified cache hit, and the
+  report claimed a local PDF that never existed. A missing PDF is a miss now.
+- a converter that exited 0 and wrote nothing reported the reason as `"0"`.
+- the Unpaywall lookup inside `prepareFullText` had no timeout, so a hung
+  Unpaywall hung the tool. Bounded at 25 s.
+- `pdfCandidates` no longer reads `isOa` at all, so it is invariant across
+  `true`/`false`/`null`.
+
+### Fixed — the connectors (`lib/sources.js`)
+
+Nine defects, three of them the same mistake as above.
+
+- `collapseTitle` truncated real titles: `"Education, Education, Education"` →
+  `"Education,"`. A live 499-title sweep went from 7 altered to 1.
+- `dedup` merged two different papers that shared a 120-character title prefix,
+  losing the second URL.
+- `summarizeOA` turned a missing `open_access` block into "not open access".
+- `makePaper` and `summarizeWork` turned `Number(null)` into `0`.
+- Zenodo and HAL hardcoded `openAccess: true`; live, 7/10 restricted Zenodo
+  records and 8/10 closed HAL records were returned as open access.
+- `makePaper` cleaned title and abstract twice, stripping escaped markup that is
+  content: `"Using &lt;script&gt; tags"` → `"Using tags"`.
+- the portal guards tested a substring weaker than the result pattern, so a
+  markup change returned `[]` with `error: null`.
+- `CROSSREF_FIELDS` omitted `is-referenced-by-count`, so crossref/acm/ieee
+  always reported `citedBy: null` and `min_citations` silently emptied all
+  three. Live: a 4641-citation Crossref paper was dropped as "the source does
+  not report a citation count".
+- `identifierMatches` never matched a versioned arXiv id, so `paper_detail`
+  listed the paper *and* reported it absent.
+
+### Tests
+
+Twelve new files — `test/d24` through `test/d32`, `d40` through `d47` — plus
+`d13`'s fixture corrected (it asserted the very cache-hit behaviour the storage
+fix removes). Suite is now **32 files**; `node test/run.mjs` reports 32 of 32.
 
 ### Fixed — the cache key ignored the credential, so a keyed answer reached an unkeyed caller
 
@@ -148,6 +237,207 @@ removes. It now writes the PDF too, which is what a real cache entry is, so its
 assertion keeps its original meaning (the collision fix did not disable the
 cache). Re-verified by mutation: reverting the slug hash still fails it, 9
 assertions.
+
+---
+
+Nine defects in `lib/sources.js`, found by auditing the connectors against the
+live platforms and against canned replies shaped like the real ones. Every fix
+has a regression test that fails on 0.6.9 and passes here.
+
+Three of them are the same mistake in different places: **a value the platform
+did not report was turned into a definite value.** A missing `open_access` block
+became "not open access", a missing citation count became "0 citations", and a
+missing `access_right` became "open access". The file already had the rule
+(`workNumber()`, and the comment above it); these are the places that did not
+follow it.
+
+### Fixed — `collapseTitle` truncated legitimate titles that repeat a phrase
+
+Rule (A) looked for the smallest period `p` such that `t[i] === t[i % p]` for
+every `i >= p`. That test never checks that the **last copy is complete**, so a
+title ending part-way through a repetition was read as an exact doubling and cut
+to one copy. Measured on real Crossref records:
+
+| input | returned |
+|---|---|
+| `Education, Education, Education` (31 chars, period 11, `31 % 11 = 9`) | `Education,` |
+| `Music Education, Music Education, Music Education!` | `Music Education, Music Education!` |
+
+A 499-title live sweep altered **7 of 499** real Crossref titles. Rule (D) made
+it worse: it fired on the same string, deleted one copy, and the next round
+deleted another.
+
+The function's comment claimed "on the 50 samples, not a single valid title was
+truncated" — a statement about the sample, not about the code. It now states what
+the code actually guarantees.
+
+A period is accepted only when the last copy is whole: either it divides the
+length evenly, or the missing tail is whitespace **and the period ends in a word
+character**. The second half is what separates a display pad from an enumeration:
+
+```
+"Digital Literacy " × 3     period ends in "y"  -> a pad, collapse
+"Education, " × 3           period ends in ","  -> an enumeration, keep
+```
+
+Rule (D) gets the same treatment: it no longer fires when what follows the two
+copies is itself a copy of the phrase. All four documented repetition shapes and
+the three valid shapes (`Title: subtitle`, `Title: (case study)`, `Title:
+keywords`) still behave as before, and `test/d10`'s odd-length doubling still
+collapses.
+
+### Fixed — `dedup` merged two different papers that share a 120-character title prefix
+
+`titleKey` truncated the normalized title to 120 characters, so two records whose
+titles differ only after character 120 got the same key and were merged, with the
+second record's URL discarded. Measured on two real Crossref records — different
+peer-review reports for different versions of the same paper:
+
+```
+keys equal? true   ->   two DIFFERENT papers -> 1 record, one URL kept
+```
+
+Not a contrived shape: **30 of 298** sampled real titles have a normalized key
+longer than 120 characters. The key is now the full normalized title, so
+genuinely identical titles still merge (including across punctuation and case
+differences) and different ones do not.
+
+### Fixed — `summarizeOA` reported "not reported" as "not open access"
+
+`isOa: !!oa.is_oa` turned a missing `open_access` block into `false`, which is
+indistinguishable from a work OpenAlex explicitly marks `is_oa: false`. `paper_oa`
+then printed a definite negative — "NOT OPEN ACCESS — OpenAlex sees no free copy"
+— for a work whose access status OpenAlex never stated.
+
+`isOa` is now `true` / `false` / **`null`**, and a new `reported` flag says
+whether OpenAlex reported the field at all. `reported` is **additive**: a
+consumer that writes `if (!oa.isOa)` keeps its old behaviour, so this change is
+backward compatible for `lib/index.js` and `lib/fulltext.js`.
+
+> **What those two files must do to stop printing the false negative.**
+> `lib/index.js` `oaTool` (`:1727`) and `detailLines` (`:1400`) should branch on
+> `oa.reported` first and print "OpenAlex does not report an access status" when
+> it is `false`. `lib/fulltext.js` `pdfCandidates` (`:193`) needs no change — it
+> reads `oa.locations`, which is unaffected. Neither file has to change for the
+> plugin to keep working.
+
+### Fixed — `makePaper` and `summarizeWork` turned an unreported citation count into `0`
+
+`Number(null)` is **0** and `Number.isFinite(0)` is TRUE, so
+`Number.isFinite(Number(p.citedBy))` passed and `citedBy` became `0`. Measured
+with a canned OpenAlex work carrying `cited_by_count: null` — the three paths
+disagreed about the same work:
+
+```
+search path     citedBy = 0     (typeof number)
+summarizeWork   citedBy = 0
+detailOfWork    citedBy = null
+```
+
+`detailOfWork` was already fixed this way; `makePaper` and `summarizeWork` were
+not. Both now use the existing `workNumber()` helper. Downstream, `filterAndSort`
+classifies the record as "count unknown" instead of "below the threshold".
+
+### Fixed — `zenodo` and `hal` claimed open access for records the platform marks closed
+
+Both connectors hardcoded `openAccess: true` for every record, ignoring the field
+the platform reports. Measured live 24 Nov 2026:
+
+| source | field | records claimed OA while the platform said otherwise |
+|---|---|---|
+| Zenodo | `metadata.access_right` (`open`/`restricted`/`embargoed`/`closed`) | 7 of 10 |
+| HAL | `openAccess_bool` | 8 of 10 |
+
+The consequence was user-visible: `open_access_only` is supposed to drop non-OA
+works, and it did not — a reader filtering for open access was handed restricted
+and embargoed records labelled "open access". Zenodo now maps
+`access_right === 'open'`, HAL maps `openAccess_bool` (added to its `fl` list, so
+the field is actually requested), and a record that does not report the field is
+not claimed as open.
+
+### Fixed — `makePaper` cleaned the title and abstract twice
+
+`truncate()` calls `cleanText()`, and `makePaper` called `cleanText()` before it,
+so cleaning ran twice. The second pass is not a no-op: the first pass has already
+turned `&lt;title&gt;` into a real `<title>`, so the second pass strips it as
+markup and deletes text that is **content**.
+
+```
+raw      "&lt;div&gt;"  ->  pass 1 "<div>"  ->  pass 2 ""  ->  record DROPPED
+```
+
+The abstract was affected in the opposite direction — cleaned once, so
+double-encoded entities survived. The `authorList` comment states the invariant
+this broke: "the decode happens exactly ONCE". A new `truncateClean()` truncates
+without re-cleaning, and both fields now go through exactly one pass.
+
+### Fixed — the HTML-portal guards tested a substring weaker than the result pattern
+
+Each portal's "did the markup change?" guard searched the page for a bare
+substring — `title-article`, `journals/profile/`, `class="title"`,
+`class="paperlink"`. That substring is weaker than the result pattern it protects,
+so a page that still contains the marker word but no longer matches the pattern
+returned `[]` with `error: null` — a markup change reported as a **valid empty
+answer**, the one failure the file header forbids. Measured on all four:
+
+| source | change | old result |
+|---|---|---|
+| garuda | inner `<xmp>` became `<span>` | `[]`, `error: null` |
+| sinta | profile links became relative | `[]`, `error: null` |
+| ios | attributes reordered | `[]`, `error: null` |
+| iacr | attributes reordered | `[]`, `error: null` |
+
+The guard now tests the same thing the parser needs — the result **container**,
+via a new `hasAnchorWith()` that matches an `<a>` tag carrying all the required
+attributes. Attribute order is deliberately not part of the test, because a
+reordering is exactly the change that broke the parser. A genuinely empty page
+(the portal's own zero-result marker) is still a valid empty answer, and a normal
+result page still parses.
+
+### Fixed — Crossref, ACM and IEEE dropped the citation count the platform reports
+
+`CROSSREF_FIELDS` — the `select` list all three connectors send — omitted
+`is-referenced-by-count`, so `citedBy` was always `null` for those three sources.
+Crossref does report it and it is selectable; verified live on real records (18,
+57 and 4641 citations). The consequence was that `min_citations` silently emptied
+them:
+
+```
+Filter: citations >= 100 — 0 below the threshold · 2 DROPPED because the
+source does not report a citation count.
+```
+
+The reply was honest about the drop, but the cause was the `select` list, not a
+platform limitation — and the registry `note` for `ieee` claimed the opposite.
+The field is now requested and mapped in `fromCrossrefItem`, so the note is true.
+
+### Fixed — a versioned arXiv id never matched its own work
+
+`isArxivId` keeps the version suffix (`arXiv:1706.03762v2` is a documented
+input), but OpenAlex stores `ids.arxiv` without it, so the equality test in
+`identifierMatches` could never succeed. `resolveWorks` uses that test to decide
+what is missing, so the work was returned **and** listed as absent:
+
+```
+1. FIRST paper the caller asked for
+   arXiv: 1706.03762 · OpenAlex: W1
+
+NOT FOUND in OpenAlex (2):
+  · arXiv:1706.03762v2
+  · arXiv:9999.99999
+These are genuinely absent from OpenAlex — …
+```
+
+The same test drives the caller-order restoration in `lib/index.js`, so a batch
+containing a versioned id also came back in the wrong order. Measured live:
+OpenAlex accepts `filter=arxiv:1706.03762v2` and returns the work — only the
+match test was wrong. The version suffix is now stripped on both sides.
+
+### Tests
+
+Nine new files, `test/d24` through `test/d32`, 131 assertions. Each fails on the
+0.6.9 baseline and passes here — verified by stashing the fix and re-running.
+Suite is now **33 files**; `node test/run.mjs` reports 33 of 33.
 
 ## [0.6.9] - 2026-11-24
 
