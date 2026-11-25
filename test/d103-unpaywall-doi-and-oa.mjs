@@ -1,4 +1,4 @@
-// test/d94-unpaywall-doi-and-oa.mjs — `unpaywall` accepted a keyword query as
+// test/d103-unpaywall-doi-and-oa.mjs — `unpaywall` accepted a keyword query as
 // a DOI, and ignored every free copy that was not the "best" one.
 //
 // ── M2: `normalizeDoi` IS A NORMALIZER, NOT A VALIDATOR ────────────────────

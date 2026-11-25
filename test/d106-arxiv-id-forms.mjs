@@ -1,4 +1,4 @@
-// test/d97-arxiv-id-forms.mjs — two arXiv id helpers rejected forms that arXiv
+// test/d106-arxiv-id-forms.mjs — two arXiv id helpers rejected forms that arXiv
 // and OpenAlex both resolve.
 //
 // ── L9: `arxivIdFromUrl` KEPT A TRAILING `/` AND DIED ON A `?` ─────────────

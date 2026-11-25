@@ -1,4 +1,4 @@
-// test/d95-openreview-fields.mjs — `openreview` lost the authors of a bare
+// test/d104-openreview-fields.mjs — `openreview` lost the authors of a bare
 // array field, and dropped an untitled note without saying so.
 //
 // ── L5: AN ARRAY IS AN OBJECT ──────────────────────────────────────────────

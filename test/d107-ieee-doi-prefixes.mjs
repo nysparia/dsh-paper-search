@@ -1,4 +1,4 @@
-// test/d98-ieee-doi-prefixes.mjs — the `ieee` doc comment claimed "every result
+// test/d107-ieee-doi-prefixes.mjs — the `ieee` doc comment claimed "every result
 // carries a `10.1109/…` DOI". It does not, and the CODE is right.
 //
 // Measured over 100 `member:263` records on 25 Nov 2026:

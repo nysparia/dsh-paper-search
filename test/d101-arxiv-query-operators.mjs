@@ -1,4 +1,4 @@
-// test/d92-arxiv-query-operators.mjs — two defects in `arxivQuery`.
+// test/d101-arxiv-query-operators.mjs — two defects in `arxivQuery`.
 //
 // ── M1: AN OPERATOR-ONLY QUERY BECAME `all:AND`, WHICH arXiv REJECTS ────────
 //

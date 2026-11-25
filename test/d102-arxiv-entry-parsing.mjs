@@ -1,4 +1,4 @@
-// test/d93-arxiv-entry-parsing.mjs — `parseArxiv` matched `<entry>` literally
+// test/d102-arxiv-entry-parsing.mjs — `parseArxiv` matched `<entry>` literally
 // and lost four shapes of a real Atom feed without saying so.
 //
 // THE DEFECTS, all measured 25 Nov 2026 against `parseArxiv` directly:
