@@ -78,4 +78,31 @@ const h = installFetch(() => ({ body: {} }));
 }
 
 h.restore();
+
+// ── 4. The same rule in paper_detail: a repeated identifier is one paper ────
+//
+// `resolveWorks` already de-duplicated within a group, so the duplicate was
+// never fetched twice — but nothing said so. Measured 24 Nov 2026 on 0.7.0
+// (HEAD ba4b580): `identifiers: ['10.1234/a','10.1234/a']` answered "1 paper ·
+// 2 OpenAlex requests" with no note, so a caller who asked for two papers could
+// not tell whether the second was absent from OpenAlex or had been collapsed.
+{
+  const det = loadTools().get('paper_detail');
+  const hd = installFetch((url) => {
+    if (url.includes('is_retracted%3Atrue')) return { body: { results: [] } };
+    const m = /filter=(doi|openalex_id)%3A([^&]+)/.exec(url);
+    if (!m) return { body: { results: [] } };
+    return { body: { results: decodeURIComponent(m[2]).split('|').map((v) => ({
+      id: `https://openalex.org/W${v.replace(/\W/g, '')}`, title: `Paper ${v}`,
+      publication_year: 2020, cited_by_count: 1,
+    })) } };
+  });
+  const r = await det.execute({ identifiers: ['10.1234/a', '10.1234/a'] });
+  hd.restore();
+  check('a repeated identifier is ONE paper', /^1 paper ·/.test(r), r.split('\n')[0]);
+  check('the repetition is REPORTED',
+    /repeated identifier\(s\) counted once: 10\.1234\/a/.test(r),
+    r.split('\n').find((l) => /repeated/.test(l)) ?? 'SILENT');
+}
+
 done('D62 paper_status source selection');
