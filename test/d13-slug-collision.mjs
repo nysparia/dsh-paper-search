@@ -24,7 +24,7 @@
 // assertions below are therefore in tension on purpose — distinctness AND
 // readability — because a fix that satisfies only one of them is not the fix
 // the spec asks for.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -135,15 +135,36 @@ mkdirSync(join(root, 'md'), { recursive: true });
 // removes. A real cache entry is a `.md` AND the PDF it was converted from, so
 // that is what the fixture now writes; the assertion keeps its original meaning
 // (the cache still works, and the collision fix did not disable it).
+//
+// H1 added a third part: the completion marker. A hand-written `.md` is
+// indistinguishable from a truncated one, so the entry is now produced by
+// running the conversion once — the same way the plugin produces it.
 const slugA = fileSlug({ doi: PAPER_A });
-writeFileSync(join(root, 'md', `${slugA}.md`), PAPER_A_CONTENT);
-writeFileSync(join(root, 'md', `${slugA}.pdf`), fakePdf());
+const converterA = join(root, 'converter-a.mjs');
+writeFileSync(converterA, `#!/usr/bin/env node\nimport { writeFileSync } from 'node:fs';\nconst a = process.argv.slice(2); const o = a[a.indexOf('-o') + 1];\nwriteFileSync(o, ${JSON.stringify(PAPER_A_CONTENT)});\n`);
+chmodSync(converterA, 0o755);
+
+const workA = {
+  doi: PAPER_A,
+  title: 'Paper A',
+  publication_year: 2020,
+  open_access: { is_oa: true, oa_status: 'green' },
+  locations: [{ is_oa: true, pdf_url: 'https://example.org/a.pdf', source: { display_name: 'Test' } }],
+};
 
 const mock = installFetch((url) => {
+  if (url.includes('example.org/a.pdf')) return { body: fakePdf(), headers: { 'content-type': 'application/pdf' } };
   if (url.includes('example.org/b.pdf')) return { body: fakePdf(), headers: { 'content-type': 'application/pdf' } };
   if (url.includes('export.arxiv.org')) return { body: '<feed></feed>' };
   return { status: 404, body: 'not mocked' };
 });
+
+const firstA = await prepareFullText({
+  work: workA, identifier: PAPER_A, converter: { name: 'a', path: converterA, from: 'test' }, root, findArxiv: async () => null,
+});
+check('paper A was really converted first, so the fixture is a real cache entry',
+  firstA.problem === null && firstA.fromCache === false && existsSync(join(root, 'md', `${slugA}.md`)),
+  `problem=${firstA.problem} fromCache=${firstA.fromCache}`);
 
 const workB = {
   doi: PAPER_B,
@@ -172,8 +193,7 @@ check('paper B really was downloaded and converted',
 
 // The fix must not be "disable the cache": paper A must still be a hit.
 const hA = await prepareFullText({
-  work: { doi: PAPER_A, title: 'Paper A', publication_year: 2020 },
-  identifier: PAPER_A, converter, root, findArxiv: async () => null,
+  work: workA, identifier: PAPER_A, converter: { name: 'a', path: converterA, from: 'test' }, root, findArxiv: async () => null,
 });
 check('paper A is still served from its own cache (the cache still works)',
   hA.fromCache === true && hA.used?.note === 'already converted',
