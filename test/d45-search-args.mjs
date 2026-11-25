@@ -53,7 +53,13 @@ function crossrefFetch(items = CROSSREF_ITEMS) {
   const f = crossrefFetch();
   const r = await tools.get('paper_search').execute({ query: 'x', sources: 'crossref', max_results: 7.9 });
   f.restore();
-  check('the clamp is REPORTED', /max_results was not a whole number/.test(r));
+  // The wording changed in round 5: the old sentence said "was not a whole
+  // number in 1-50", which is wrong for `500` (it IS a whole number, just out of
+  // range) and for `null` (which is not a number at all). The assertion pins the
+  // FACT — the clamp is reported and names the value actually used — not the
+  // sentence, so improving the sentence does not fail the test.
+  check('the clamp is REPORTED', /NOTE: max_results was 7\.9 — 7 was used/.test(r),
+    r.split('\n').find((l) => /max_results/.test(l)));
 }
 {
   const tools = loadTools();
