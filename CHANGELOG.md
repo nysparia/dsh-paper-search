@@ -7,6 +7,148 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.7.0] - 2026-11-24
+
+Five defects found by auditing the storage layer — the search cache and the
+full-text pipeline — against the principles each file states about itself. Four
+of the five are cases where the code contradicted its own comment.
+
+### Fixed — the cache key ignored the credential, so a keyed answer reached an unkeyed caller
+
+`lib/cache.js` states its own principle 3 — "Keyed sources MUST be skipped" — and
+`isCacheable` implemented it as "skip sources whose `credit` contains REQUIRED".
+That is a different set. `REQUIRED` marks the sources that cannot work *without*
+a key (CORE, Unpaywall); the sources that *use* one when it is present declare
+`credit` as `'raises rate limit'`, `'optional'` or `'recommended (polite pool)'`
+and were cached. Measured 24 Nov 2026:
+
+| call | result |
+|---|---|
+| `sources:'semantic'` **with** `SEMANTIC_SCHOLAR_API_KEY` | 2 results, stored |
+| the same query **without** the key | the same 2 results, from cache |
+| what the unkeyed call would have got | 1 result (rate limit) |
+
+The cache handed the second caller an answer it could not have obtained. The key
+cannot fix this by being part of the key — principle 2 forbids secrets on disk,
+and the cache file is written by our own hand — so the source is skipped instead,
+which is what principle 3 already asked for.
+
+Eight sources are affected: `openalex`, `doaj`, `semantic`, `core`, `ssrn`,
+`biorxiv`, `medrxiv`, `chemrxiv`. The list is exported as `KEYED_SOURCE_IDS` and
+pinned against `SOURCES` by a test, so a renamed id fails the suite instead of
+silently protecting nothing. A source that declares `needs` is now also skipped
+structurally, independently of its `credit` wording.
+
+**What a user will notice:** `openalex` is a default source, so the most common
+search no longer gets a cache hit for it. That is the trade — a cache miss costs
+one request, a keyed answer served to the wrong caller costs a wrong answer.
+`paper_status` lists the skipped sources, so the change is visible rather than
+silent.
+
+### Fixed — a `.md` with no companion PDF was served as a verified cache hit
+
+`prepareFullText` decides "already converted" by looking for `<slug>.md`, then
+validates it against `<slug>.pdf` — but only when that PDF exists:
+
+```js
+const previous = existsSync(result.pdf)
+  ? checkPdf(result.pdf)
+  : { ok: true, reason: 'no PDF in cache' };   // ok: true
+```
+
+So an orphaned `.md` came back with `fromCache: true`, `used.from = 'local file'`,
+note `'already converted'`, and the report printed both of these one line apart:
+
+```
+pdf      : /…/doi-10.1038_nature14539-2fbc9ecc.pdf (not stored)
+PDF source : local file — already converted
+```
+
+claiming a local PDF that never existed, and serving content nothing had checked.
+The state arises from outside this function's own sequence (it writes the PDF
+first, so its interrupted runs leave a PDF and no `.md`): the PDF deleted to save
+space, the folder copied without the PDFs, a `.md` written by hand or by an older
+version.
+
+A missing PDF is now a **miss**. The `.md` is dropped through the same
+self-healing path as an invalid PDF, and the reason is reported through
+`cacheNote` — worded differently from the damaged-PDF case, because "absent" and
+"not valid" are different facts. A `.md` *with* a valid PDF is still a hit, so the
+cheap path is unchanged.
+
+### Fixed — a converter that exits 0 and writes nothing reported the reason as `"0"`
+
+`convertToMarkdown` built its failure reason from the exit code, and the
+`code === 0 && size > 0` success case returns above it — so the only way to reach
+the last branch with a number is **exit 0 with no output**. The user was told:
+
+```
+conversion failed through silent: 0
+```
+
+A bare `0` where the reason belongs. It is a real misconfiguration, not a
+curiosity: `-o <path>` is used by anydoc and newer markitdown, and a converter
+that does not know `-o` writes to stdout — which this function sends to a file
+descriptor — so it exits 0 having written nothing to the path we asked for. The
+message now names that case and keeps the exit code visible. Timeout, non-zero
+exit and spawn failure keep their own, distinct wording.
+
+### Fixed — the Unpaywall lookup inside `prepareFullText` had no timeout
+
+Every other network call in this package is bounded — `downloadPdf` at 120 s,
+`getText` in `lib/sources.js` at 25 s — but the Unpaywall lookup was a bare
+`fetch` with no `AbortController` and no timer. Measured 24 Nov 2026 with a stub
+that never settles: `prepareFullText` was still running after 3 s with no way to
+bound it. `paper_fulltext` is a tool call, so an unbounded wait is a hung tool,
+and there is no user watching it who could cancel.
+
+It now gets the same treatment at 25 s (`LOOKUP_TIMEOUT_MS`), matching `getText`
+rather than `downloadPdf` because it is a metadata lookup, not a transfer. An
+abort is reported as `timeout > 25 s` rather than as an opaque `AbortError`, and
+the remaining candidates are still tried afterwards.
+
+### Changed — `pdfCandidates` no longer reads `isOa`
+
+`summarizeOA` (`lib/sources.js:1026`) returns `isOa: !!oa.is_oa`, so a work whose
+`open_access` block is missing and a work OpenAlex reports as closed both arrive
+as `false` — two opposite facts, one value. That is being fixed in
+`lib/sources.js`, which this change does not touch.
+
+`pdfCandidates` is made independent of the answer: it builds its list from
+`locations` alone, which is the only field that carries a URL. A location with a
+`pdf_url` is a real open-access copy whether or not the summary flag was
+reported, and a work with no locations yields no candidates either way. So the
+function behaves identically whether `isOa` is `true`, `false`, `null` or
+`undefined`, and the `lib/sources.js` change can land without touching it.
+
+**Assumption, stated because it cannot be verified from this file:** the fixed
+`summarizeOA` keeps `locations` an array (empty when nothing is known) and keeps
+filling it from `work.locations` regardless of `isOa`. The `?? []` guards hold
+that defensively, so a `null` locations field degrades to "no candidates" instead
+of throwing.
+
+### Tests
+
+Five new files, 109 assertions:
+
+| file | defect | assertions |
+|---|---|---|
+| `test/d40-cache-credential-key.mjs` | keyed answer served to an unkeyed caller | 41 |
+| `test/d41-md-without-pdf.mjs` | orphaned `.md` served as a verified hit | 18 |
+| `test/d42-converter-empty-output.mjs` | reason reported as `"0"` | 15 |
+| `test/d43-unpaywall-timeout.mjs` | unbounded Unpaywall lookup | 14 |
+| `test/d44-oa-unknown-vs-closed.mjs` | `isOa` unknown vs reported closed | 21 |
+
+Each fails on the 0.6.9 baseline and passes here; verified by stashing the fix
+and re-running. Suite is now **29 files**.
+
+`test/d13-slug-collision.mjs` needed one fixture change: it wrote a `.md` with no
+companion PDF and asserted that counted as a cache hit — the very behaviour D41
+removes. It now writes the PDF too, which is what a real cache entry is, so its
+assertion keeps its original meaning (the collision fix did not disable the
+cache). Re-verified by mutation: reverting the slug hash still fails it, 9
+assertions.
+
 ## [0.6.9] - 2026-11-24
 
 Two defects found by running the installed plugin against the live sources
