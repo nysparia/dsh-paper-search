@@ -22,6 +22,17 @@
 // WHAT MUST STILL WORK. A record the platform DOES mark open must still be
 // reported as open, and a record that does not report the field at all must not
 // be claimed as open (that is the same rule as `summarizeOA`).
+//
+// ── THE TWO "DOES NOT SAY" ASSERTIONS NOW EXPECT `null`, NOT `false` ────────
+//
+// They were written as `=== false` because `makePaper` coerced a missing flag
+// with `!!`, so "not reported" and "reported closed" were the same value. That
+// coercion was itself the defect (fixed 25 Nov 2026, `test/d96`): the same
+// OpenAlex work came back `openAccess: false` on the search path and
+// `{isOa: null, reported: false}` through `paper_oa`. `null` is what this test's
+// own header asks for — "the same rule as `summarizeOA`" — and it is STRICTER,
+// not weaker: `false` still has to be produced by the four documented values
+// above, and `null` can no longer be produced by them.
 
 import { searchSource } from '../lib/sources.js';
 import { check } from './harness.mjs';
@@ -65,7 +76,7 @@ function serve(body) {
   check('access_right "closed" is NOT open access', byTitle('A closed record')?.openAccess === false,
     JSON.stringify(byTitle('A closed record')?.openAccess));
   check('a record that does not report the field is NOT claimed open',
-    byTitle('A record that does not say')?.openAccess === false,
+    byTitle('A record that does not say')?.openAccess === null,
     JSON.stringify(byTitle('A record that does not say')?.openAccess));
 }
 
@@ -100,7 +111,7 @@ function serve(body) {
   check('openAccess_bool false is NOT open access', byTitle('A closed HAL record')?.openAccess === false,
     JSON.stringify(byTitle('A closed HAL record')?.openAccess));
   check('a HAL record that does not report the field is NOT claimed open',
-    byTitle('A HAL record that does not say')?.openAccess === false,
+    byTitle('A HAL record that does not say')?.openAccess === null,
     JSON.stringify(byTitle('A HAL record that does not say')?.openAccess));
 }
 
