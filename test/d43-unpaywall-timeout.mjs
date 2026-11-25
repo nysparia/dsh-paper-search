@@ -155,8 +155,15 @@ function installHangingFetch({ hangUnpaywall = true, servePdfAfter = false } = {
   check('the failure names the TIMEOUT, not an opaque AbortError',
     /timeout/i.test(h.problem ?? ''),
     h.problem ?? '(none)');
-  check('the failure states the bound in seconds',
-    /timeout > \d+ s/.test(h.problem ?? ''),
+  // The bound is stated in a unit a reader can act on: seconds for a normal
+  // bound, milliseconds below one second. `Math.round(ms / 1000)` alone printed
+  // "timeout > 0 s" for the 300 ms bound this test uses, which reads as "there is
+  // no timeout at all".
+  check('the failure states the bound in a readable unit',
+    /timeout > \d+(\.\d+)? (s|ms)\b/.test(h.problem ?? ''),
+    h.problem ?? '(none)');
+  check('a sub-second bound is NOT rounded down to "0 s"',
+    !/timeout > 0 s/.test(h.problem ?? ''),
     h.problem ?? '(none)');
   check('the failure does not leak the raw "aborted" wording',
     !/aborted/i.test(h.problem ?? ''),
