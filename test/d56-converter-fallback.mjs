@@ -27,7 +27,15 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-import { findConverter, findConverters, prepareFullText } from '../lib/fulltext.js';
+// `findConverters` is imported through the NAMESPACE, not by name: on the
+// unfixed code the export does not exist, and a named import turns that into a
+// module SyntaxError that aborts the file before a single assertion runs. A test
+// that fails by not loading proves nothing about the behaviour — the same rule
+// `test/d40-cache-credential-key.mjs` states for `KEYED_SOURCE_IDS`.
+import * as fulltextModule from '../lib/fulltext.js';
+import { findConverter, prepareFullText } from '../lib/fulltext.js';
+
+const findConverters = fulltextModule.findConverters ?? (() => []);
 import { installFetch, reporter, fakePdf } from './harness.mjs';
 
 const { check, done } = reporter();
