@@ -155,12 +155,24 @@ nothing", a cache entry read once per TTL that never expires.
 - **The completion marker binds to the PDF's mtime**, so copying the library
   folder without preserving mtimes costs one re-download per paper.
 
+### Fixed — a cached arXiv full text needed the network
+
+`fileSlug` derived a paper's file name from its TITLE, so a direct
+`paper_fulltext({identifier:'1706.03762'})` had to fetch the metadata from
+`export.arxiv.org` before it could work out which file to look for — the cache
+check came after a network round trip. Measured against the live arXiv API: the
+first call took 11,824 ms, and a repeat whose Markdown was already on disk took
+**5,416 ms**, of which `arxivWork()` was 5,630 ms, while the reply said "already
+converted — not downloaded again". An arXiv id is its own identifier, so the file
+name now comes from the id and the title comes from the completion marker. The
+repeat call is **1 ms**.
+
 ### Tests
 
-80 files, up from 42. Every new file fails on 0.7.0 and passes here. The
+81 files, up from 42. Every new file fails on 0.7.0 and passes here. The
 numbering was renumbered into contiguous blocks by area (d49–d60 fulltext,
-d61–d69 peta, d70–d78 cache, d79–d86 argument handling) because three fix
-branches written in parallel had each started at d49.
+d61–d69 peta, d70–d78 cache, d79–d87 argument handling and reporting) because
+three fix branches written in parallel had each started at d49.
 
 ## [0.7.0] - 2026-11-24
 
