@@ -120,11 +120,18 @@ Options:
 > | `moraref` | its page is only a landing page, with no result markup (3,964 characters) |
 > | `dblp` | its API is behind bot protection — returns a "Making sure you're not a bot!" page, not JSON |
 > | `openaire` | test requests **timed out at 30 seconds and 40 seconds** |
-> | `biorxiv` / `medrxiv` | their API is DATE-RANGE based, not keyword — it cannot be used for searching |
 > | `base` | refuses: `Access denied for IP address …` — needs institutional IP registration |
 > | `citeseerx` | HTTP 404, then **hangs** until the request is killed |
-> | `ssrn` | rejects ordinary requests with HTTP 403 |
 > | `google_scholar` | active bot detection; needs a proxy |
+>
+> **Three rows were REMOVED from this table because they became wrong.** It used
+> to list `biorxiv`, `medrxiv` and `ssrn` as "deliberately not registered", with
+> the reasons "their API is DATE-RANGE based, not keyword" and "rejects ordinary
+> requests with HTTP 403". All three reasons are still true of those hosts' OWN
+> endpoints — and all three sources are nevertheless **registered**, because they
+> are reached through **OpenAlex** instead (repository ids `S4306402567`,
+> `S3005729997`, and a publisher filter). A table that says a working source does
+> not exist is worse than no table: it tells the reader not to use it.
 >
 > A source that is always empty is worse than a source that does not exist — so
 > the ones that failed were dropped and **their reasons recorded**, rather than
@@ -140,14 +147,17 @@ This tool **separates** sources that failed from ones that answered. The output
 always shows a per-source line:
 
 ```
-  v Crossref            3 results  (2316 ms)
-  x Semantic Scholar    FAILED — HTTP 429 (HTTP 429) — {"message": "Too Many Requests...
-  v Garuda              3 results  (1428 ms)
+  OK     Crossref           api       3 results  (2316 ms)
+  FAILED Semantic Scholar   api     HTTP 429 — {"message": "Too Many Requests...
+  OK     Garuda             html      3 results  (1428 ms)
 ```
+
+A source served from the cache says `(cached)` where the timing goes — it was not
+asked at all, so a millisecond figure there would read as "answered instantly".
 
 **The rules:**
 
-1. A source marked **`x`** means FAILED — not empty. **Say so** when reporting
+1. A source marked **`FAILED`** means FAILED — not empty. **Say so** when reporting
    results. Never write "no literature" from a source that failed.
 2. If all sources return 0 → retry **once** (rate limits are often transient),
    then try a different `sources`.
@@ -264,8 +274,9 @@ What it reports:
 
 1. coupling & co-citation are **proxies** for similarity, **not proof** of a
    relationship;
-2. works without a reference list in OpenAlex appear with closeness **0** — that is
-   "unknown", **not** "dissimilar";
+2. works without a reference list in OpenAlex are **omitted** from the closeness
+   list — their closeness is "unknown", **not** "dissimilar", and the reply says
+   how many were left out;
 3. clusters **depend on the threshold** — state the threshold when reporting;
 4. **bridges** mean nearly belonging to two fields *according to references*, not a
    quality judgement. Container records (proceedings with hundreds of references) are
@@ -284,7 +295,12 @@ The purpose is simple: the same search repeated within one session is normal.
 - **`force_refresh: true`** to ignore it and search all sources again.
 - **Failures are never stored** — only successful answers. Otherwise a momentary
   glitch would "infect" for 30 minutes.
-- **Keyed** sources (CORE, Unpaywall) are **not** cached.
+- **A keyed answer is never served to an unkeyed caller.** The cache key carries
+  one bit — whether a credential was sent for that source — so the two answers
+  occupy different entries. The bit says "a key was used", never which key, so
+  nothing on disk identifies the secret and a rotated key reuses the entry.
+- **Two sources are never cached**: `core` (it cannot work without a key, so its
+  answer is one caller's) and `unpaywall` (its input is a DOI, not a query).
 - Check the content & limits via `paper_status`; clear it with
   `paper({ mode: "status", clear_cache: true })`.
 - Can be turned off entirely via the plugin config: `cache: false`.
@@ -305,8 +321,10 @@ location, finally Unpaywall. The result is stored in `~/.dsh/paper-search/md/` (
 ≤ 20,000 characters, or a preview + a `read({ file_path, offset, limit })` command.
 
 Measured 29 Sep 2026: arXiv PDF 2.1 MB → **39.8 KB Markdown in 424 ms**; PLOS PDF
-2.9 MB → **70.8 KB in 363 ms**. Through the tool (including download + arXiv lookup):
-**2.4–4.4 seconds**, and **0.3 seconds** if the file already exists.
+2.9 MB → **70.8 KB in 363 ms**. Through the tool, measured 24 Nov 2026 on 0.8.0:
+**11.8 seconds** for a paper not yet on disk (download + convert), and **1 ms**
+when the Markdown is already there — an arXiv id's file name comes from the id, so
+a cache hit needs no network at all.
 
 **The converter must be installed** (not bundled with the package):
 
