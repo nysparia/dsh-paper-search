@@ -7,6 +7,161 @@
 > translation; their versions, dates, source ids, tool names, and measurements
 > are untouched.
 
+## [0.8.0] - 2026-11-24
+
+A second audit round, this time over the three files the first round touched
+least: `lib/peta.js` (the citation-map math), `lib/fulltext.js` (the PDF path)
+and `lib/cache.js`. 38 more defects were reproduced before any of them was
+touched. Each has a regression test that fails on 0.7.0 and passes here.
+
+The same shape dominates again, and it is worth naming because it is the one
+this package keeps producing: **a value the platform did not report was turned
+into a definite value.** A partial citation sum printed as the cluster total, a
+truncated Markdown file served as a verified cache hit, a copy OpenAlex named
+reported as "no free copy", a failed arXiv lookup reported as "there is
+nothing", a cache entry read once per TTL that never expires.
+
+### Fixed — `lib/fulltext.js`
+
+- **A truncated `.md` was served as a verified cache hit.** The hit test was
+  `size > 0`; the Markdown itself was never inspected. A 29-byte file cut
+  mid-word beside a valid PDF returned `fromCache: true` / "already converted".
+  Reachable without hand-editing, because the converter accepts any non-empty
+  output. A hit now requires a completion marker recording the `.md`'s size and
+  SHA-256 and the PDF's size and mtime; a `.md` with no marker is a MISS with
+  the reason stated.
+- **Two different papers with the same title and year shared one slug.** The
+  hash covered `title + year` only, so "Editorial" 2020 from two repositories
+  was one file and the second request got the first paper's body. The identifier
+  is now folded into the title-path hash.
+- **`publication_year` was interpolated raw into the filename — path
+  traversal.** `"../../../../tmp/x/OUTSIDE"` wrote both the PDF and the `.md`
+  outside the library folder and reported success. The year is now `\d{4}` or
+  `x`, and `prepareFullText` refuses any path that resolves outside its own
+  directory.
+- **A failed arXiv lookup was reported as "no open-access copy found".** The
+  failure was recorded in `arxivNote` and printed only on the success path, so
+  "could not check" reached the user as "there is nothing".
+- **No size cap on the download.** The whole reply was buffered then written;
+  `content-length` and `content-type` were never read. Now 100 MB, checked
+  against the header and enforced while streaming.
+- **`checkPdf` accepted `"%PDF-"` followed by 2000 NUL bytes**, and a
+  `text/html` body starting with `%PDF-`. It now requires a regular file,
+  `%PDF-` in the first 1024 bytes, and `%%EOF` in the last 2 KB.
+- **`findConverter` tested `existsSync` only**, so a directory, a non-executable
+  file and a binary that exits 127 were all returned as "the converter" — and
+  there was no fallback, so a broken `anydoc` plus a working `markitdown` gave
+  `exit code 127` and markitdown was never tried.
+- **The timeout used SIGTERM and resolved immediately.** A converter that
+  ignores TERM stayed alive and wrote a complete `.md` after `ok: false` was
+  returned — which the next call then served as a cache hit. Now SIGTERM then
+  SIGKILL, and the output is written to `.part` and renamed only on success.
+- A read-only library root was reported as `all PDF candidates failed (EACCES)`,
+  blaming the sources for a permissions problem; a `<slug>.md` that is a
+  directory made the tool throw `EISDIR`, contradicting its "never throws"
+  contract; `.part` files were left behind on failure; the Unpaywall URL printed
+  the user's email on failure.
+
+### Fixed — `lib/cache.js`
+
+- **`get()` made the TTL sliding and reported the wrong age.** `usedAt` was
+  refreshed on every hit and `storedAt` was assigned after that refresh, so an
+  entry read once per TTL never expired and the reply said "oldest 20 minutes
+  ago" about data fetched five hours earlier. `storedAt` (TTL) and `usedAt`
+  (LRU) are now separate.
+- **The writability probe proved a 0-byte write.** Under `ulimit -f 1` the probe
+  succeeded, every `set()` failed, and the startup note still said "search cache
+  active" — the exact defect the previous comment claimed to have fixed.
+- **`dropExpired()` returned the number `prune()` removed for any reason**, so
+  six fresh entries with `maxEntries: 3` reported "3 expired".
+- **`maxEntries: -1` threw `TypeError: Reduce of empty array`** out of `set()`,
+  which `runSearch` calls inside `Promise.all` — one bad config killed a whole
+  search. `maxEntries: 0` made `set()` return true while storing nothing.
+- **`read()` accepted `entries: []`** (`typeof [] === 'object'`), so a corrupt
+  file reported `corrupt: false` and silently swallowed every write.
+- **The fixed `.part` name raced across processes.** Three writers plus one
+  reader: 41,747 of 53,701 reads were unparseable, 41,450 of them zero-byte, and
+  a truncated file was renamed into place and then reported as CORRUPT.
+- **`KEYED_SOURCE_IDS` was dead code.** Its comment said "this list is what
+  `runSearch` consults"; `runSearch` used a second hardcoded set with five of
+  the eight ids. The exported set is now the single source of truth.
+
+### Fixed — `lib/peta.js`
+
+- **A partial citation sum was printed as the cluster total.** `totalCitations`
+  was `null` only when NO member reported a number, so a 3-work cluster with one
+  unknown printed "total 30 citations". The sum now travels with how many
+  members it covers.
+- **The strict and loose clustering levels could invert.** The loose level was
+  hardcoded at 0.05/2 while the caller validated the strict one only as `> 0`,
+  so `strong_threshold: 0.05` made "strict" looser than "loose", merged
+  everything into one cluster, and returned no bridges — while the reply printed
+  both thresholds, contradicting itself.
+- **A candidate whose id did not survive `shortId` was dropped from the map but
+  still counted.** `shortId('https://openalex.org/W123/')` returned `null`, so
+  four works produced a map of one and the reply said "candidates checked: 4".
+- **The seed was counted as a candidate against itself**, ranking first at
+  coupling 1.000 and inflating the co-citation counts of its own references.
+- `summarizeCluster`'s `top[]` was not deterministic (`null` and `0` shared a
+  sort key); `yearMin`/`yearMax` came from a silent subset and accepted `99999`
+  as an upper bound; `mapIsUseful` read a `Set` as "no references"; the
+  "fewer than 2 candidates" advice named the wrong direction and never named the
+  bar it was testing against.
+
+### Fixed — argument handling and reporting (`lib/index.js`, `lib/sources.js`)
+
+- **An optional numeric argument that was not sent became a value.**
+  `Number(null)` is 0 and `Number('')` is 0, both finite, so `max_results: null`
+  sent **one** result per source instead of the default five, and the reply
+  blamed the caller for a value they had not sent. `max_results: "abc"` silently
+  became the default with no note at all, while an invalid `min_citations` and
+  an invalid `year_from` were both reported. `abstract_chars: null` meant "no
+  limit" and dumped the whole abstract instead of the documented 1200.
+- **Five boolean parameters were read five different ways** and only
+  `open_access_only` accepted the string spelling: `force_refresh: "true"` was
+  ignored with no note, `probe: "true"` sent zero requests and then said "not
+  probed", `clear_cache: "true"` did not clear.
+- **`paper_status({sources:'all'})` checked 21 of 23 sources while a bare call
+  checked 23** — asking for "all" reported on fewer sources than asking for
+  nothing, and the two it dropped are the off-by-default ones a user reaches for
+  that tool to diagnose.
+- **Two different papers that share a title were merged into one.** `dedup`
+  keyed a DOI-less record on its normalized title alone, so "Editorial" 2020 and
+  "Editorial" 2021 became one record and the second URL was discarded. A title
+  key now maps to a list and a record joins an existing one only when the years
+  are compatible.
+- **A copy OpenAlex named was reported as "no free copy".** A location with a
+  `pdf_url` but no `is_oa` flag was dropped; `best_oa_location` was never read;
+  and `paper_oa` branched on the summary flag alone, so a work whose flag said
+  closed while a location said open printed "OpenAlex sees no free copy" and
+  returned without listing the copy it had just found.
+- **A peer-review report was classified as a review article.** Crossref's
+  `type: 'peer-review'` is the referee report itself, and `includes('review')`
+  caught it, so `kind: 'review'` returned referee reports mixed in with reviews.
+- A connector that threw a non-`Error` lost what it threw (`e?.message ??
+  'failed'` printed the bare word "failed"); `paper_citations` printed no
+  request count while `paper_detail` printed one; a repeated identifier in
+  `paper_detail` was collapsed with no note; a cached source printed "(0 ms)",
+  which reads as "answered instantly" rather than "not asked".
+
+### Changed
+
+- **A cache entry written by 0.7.0 is dropped on upgrade.** It carries no
+  `storedAt`, and falling back to `usedAt` would resurrect the sliding-TTL lie
+  this release fixes. One cold start, then normal.
+- **`checkPdf` now requires `%%EOF`.** A PDF that omits the trailer is refused
+  and re-downloaded. Verified against real files (an 889 kB licence PDF and a
+  119 MB artbook both pass).
+- **The completion marker binds to the PDF's mtime**, so copying the library
+  folder without preserving mtimes costs one re-download per paper.
+
+### Tests
+
+80 files, up from 42. Every new file fails on 0.7.0 and passes here. The
+numbering was renumbered into contiguous blocks by area (d49–d60 fulltext,
+d61–d69 peta, d70–d78 cache, d79–d86 argument handling) because three fix
+branches written in parallel had each started at d49.
+
 ## [0.7.0] - 2026-11-24
 
 A full audit of 0.6.9 — every file, every tool, every connector — and the fixes
