@@ -1,4 +1,4 @@
-// d54 — `yearMin`/`yearMax` came from a silent subset, and the sanity window was
+// d66 — `yearMin`/`yearMax` came from a silent subset, and the sanity window was
 // arbitrary in both directions.
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580):
@@ -91,4 +91,4 @@ check('the cluster line states the partial year coverage', /2020-2020 .*\(2 of 3
 check('the coverage is the LAST thing on the line, so the range cannot be read as complete',
   /\(2 of 3 years not reported\)$/.test(line), line);
 
-done('D54 cluster year coverage');
+done('D66 cluster year coverage');

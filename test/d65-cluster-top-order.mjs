@@ -1,4 +1,4 @@
-// d53 — `summarizeCluster`'s `top[]` was not deterministic.
+// d65 — `summarizeCluster`'s `top[]` was not deterministic.
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580). The comparator was
 // `(Number(b?.cited_by_count) || 0) - (Number(a?.cited_by_count) || 0)`, which maps
@@ -60,4 +60,4 @@ check('unknown counts sort LAST, not as zeros', forward.endsWith('N1:null N2:nul
   check('a non-numeric count is treated as unknown and sorts last', t[0].id.endsWith('/Z'), t.map(label).join(' '));
 }
 
-done('D53 cluster top[] determinism');
+done('D65 cluster top[] determinism');

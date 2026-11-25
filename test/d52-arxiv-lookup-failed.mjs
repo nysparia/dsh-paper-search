@@ -1,4 +1,4 @@
-// test/d52-arxiv-lookup-failed.mjs — D52 (audit H4): a FAILED arXiv lookup was
+// test/d52-arxiv-lookup-failed.mjs — D83 (audit H4): a FAILED arXiv lookup was
 // reported as "no open-access copy found for this work".
 //
 // THE DEFECT. `prepareFullText` recorded the failure in `result.arxivNote` and
@@ -38,7 +38,7 @@ const converter = { name: 'fake', path: converterPath, from: 'test' };
 const DOI = '10.1038/nature14539';
 const work = { doi: DOI, title: 'A paper with no listed OA location', publication_year: 2015 };
 
-const root = join(tmpdir(), `dsh-d52-${process.pid}`);
+const root = join(tmpdir(), `dsh-d83-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(join(root, 'md'), { recursive: true });
 
@@ -74,7 +74,7 @@ check('a genuine absence does not mention a failure',
 check('a genuine absence sets no arxivNote', !absent.arxivNote, absent.arxivNote ?? '(none)');
 
 // ── 3. Through the registered tool: the reply must mention the failure ─────
-const root2 = join(tmpdir(), `dsh-d52-tool-${process.pid}`);
+const root2 = join(tmpdir(), `dsh-d83-tool-${process.pid}`);
 rmSync(root2, { recursive: true, force: true });
 mkdirSync(join(root2, 'md'), { recursive: true });
 

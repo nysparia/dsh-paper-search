@@ -1,4 +1,4 @@
-// d63 — a connector that throws something that is not an Error must not lose it.
+// d82 — a connector that throws something that is not an Error must not lose it.
 //
 // THE DEFECT. `searchSource` built its failure message with
 // `e?.message ?? 'failed'`. A thrown STRING has no `.message`, so the fallback
@@ -54,4 +54,4 @@ async function failedLine(thrown) {
   check('the HTTP status is not printed twice', (line.match(/HTTP 400/g) ?? []).length === 1, line);
 }
 
-done('D63 a thrown non-Error keeps its content');
+done('D82 a thrown non-Error keeps its content');

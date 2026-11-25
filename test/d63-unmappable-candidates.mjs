@@ -1,4 +1,4 @@
-// d51 — a candidate whose id did not survive `shortId` was dropped from the map
+// d63 — a candidate whose id did not survive `shortId` was dropped from the map
 // but still counted as "checked".
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580):
@@ -100,4 +100,4 @@ function mapFetch(candidates) {
     r.split('\n').find((l) => /^  cluster \d+:/.test(l)) ?? r.split('\n').find((l) => /Fewer than 2/.test(l)));
 }
 
-done('D51 unmappable candidates');
+done('D63 unmappable candidates');

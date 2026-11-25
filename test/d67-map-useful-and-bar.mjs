@@ -1,4 +1,4 @@
-// d55 — `mapIsUseful` answered confidently on the wrong type, and the caller
+// d67 — `mapIsUseful` answered confidently on the wrong type, and the caller
 // dropped the bar it was given.
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580):
@@ -90,4 +90,4 @@ const FOUR = Array.from({ length: 4 }, (_, i) => ({
     r.split('\n').find((l) => /only 2/.test(l)));
 }
 
-done('D55 mapIsUseful and the reported bar');
+done('D67 mapIsUseful and the reported bar');

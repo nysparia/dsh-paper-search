@@ -1,4 +1,4 @@
-// d64 — a copy that OpenAlex NAMES must not be reported as "no free copy".
+// d83 — a copy that OpenAlex NAMES must not be reported as "no free copy".
 //
 // THE DEFECT, in three shapes, all measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580).
 // Each one ends with the tool saying there is no open-access copy while the
@@ -98,4 +98,4 @@ const { check, done } = reporter();
     r.split('\n').find((l) => /access status/.test(l)) ?? '');
 }
 
-done('D64 an open-access copy that was named is shown');
+done('D83 an open-access copy that was named is shown');

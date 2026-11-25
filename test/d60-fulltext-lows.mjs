@@ -1,4 +1,4 @@
-// test/d60-fulltext-lows.mjs — D60 (audit L2, L3, L4, L7): four small defects in
+// test/d60-fulltext-lows.mjs — D79 (audit L2, L3, L4, L7): four small defects in
 // `lib/fulltext.js`, each measured 24 Nov 2026.
 //
 //   L2  `http://[2001:0:0:0:0:0:0:1]/` was reported SAFE. The Teredo branch
@@ -23,7 +23,7 @@ import { installFetch, reporter, fakePdf } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d60-${process.pid}`);
+const root = join(tmpdir(), `dsh-d79-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 

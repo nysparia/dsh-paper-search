@@ -1,4 +1,4 @@
-// d66 — two DIFFERENT papers that share a title must not be merged into one.
+// d85 — two DIFFERENT papers that share a title must not be merged into one.
 //
 // THE DEFECT. `dedup` keyed a DOI-less record on its normalized title alone, so
 // two papers with the same title collapsed into one and the second one's URL was
@@ -81,4 +81,4 @@ const rec = (title, year, source, url) => ({ title, year, source, doi: null, url
     dedup([rec(null, 2020, 'a', 'u1'), rec(null, 2020, 'b', 'u2')]).length === 2);
 }
 
-done('D66 dedup keeps two papers that share a title');
+done('D85 dedup keeps two papers that share a title');

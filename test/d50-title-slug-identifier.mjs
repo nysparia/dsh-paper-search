@@ -1,4 +1,4 @@
-// test/d50-title-slug-identifier.mjs — D50 (audit H2): two different papers with
+// test/d50-title-slug-identifier.mjs — D81 (audit H2): two different papers with
 // the same title and year shared one slug, and the second was answered with the
 // first one's body.
 //
@@ -62,7 +62,7 @@ check('a title-only call still differs from a call that names an identifier',
 
 // ── 2. End to end: paper B must not be answered with paper A's body ────────
 const PAPER_A_CONTENT = '# PAPER A — the first paper\n';
-const root = join(tmpdir(), `dsh-d50-${process.pid}`);
+const root = join(tmpdir(), `dsh-d81-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(join(root, 'md'), { recursive: true });
 

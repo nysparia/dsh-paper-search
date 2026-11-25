@@ -1,4 +1,4 @@
-// test/d57-cache-requires-file.mjs — D57 (audit L6): `createCache()` with no
+// test/d78-cache-requires-file.mjs — D78 (audit L6): `createCache()` with no
 // `file` produced `file: undefined` plus a Node deprecation warning.
 //
 // THE DEFECT. Measured 24 Nov 2026:
@@ -25,7 +25,7 @@ import { reporter } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d57-${process.pid}`);
+const root = join(tmpdir(), `dsh-d69-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -60,4 +60,4 @@ check('...and stores and serves', real.threw === false
 check('...and status() reports the path, not undefined', real.threw === false && real.value.status().file === file);
 
 rmSync(root, { recursive: true, force: true });
-done('D57 createCache() with no file');
+done('D78 createCache() with no file');

@@ -1,4 +1,4 @@
-// test/d50-cache-probe-realistic.mjs — D50 (audit H2 + L4): the writability
+// test/d71-cache-probe-realistic.mjs — D71 (audit H2 + L4): the writability
 // probe proved a 0-BYTE write, so `writable: true` was reported while every
 // `set()` failed.
 //
@@ -37,7 +37,7 @@ import { reporter } from './harness.mjs';
 const { check, done } = reporter();
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = join(tmpdir(), `dsh-d50-${process.pid}`);
+const root = join(tmpdir(), `dsh-d81-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -93,4 +93,4 @@ mkdirSync(root, { recursive: true });
 }
 
 rmSync(root, { recursive: true, force: true });
-done('D50 the writability probe proved a 0-byte write');
+done('D71 the writability probe proved a 0-byte write');

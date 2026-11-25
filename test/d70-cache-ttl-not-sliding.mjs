@@ -1,4 +1,4 @@
-// test/d49-cache-ttl-not-sliding.mjs — D49 (audit H1): `get()` made the TTL
+// test/d70-cache-ttl-not-sliding.mjs — D70 (audit H1): `get()` made the TTL
 // sliding and reported the wrong age.
 //
 // THE DEFECT. `get()` refreshed `usedAt` on every hit and then returned the
@@ -31,7 +31,7 @@ import { reporter } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d49-${process.pid}`);
+const root = join(tmpdir(), `dsh-d80-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -132,4 +132,4 @@ const T0 = 1_000_000;
 }
 
 rmSync(root, { recursive: true, force: true });
-done('D49 the cache TTL slid on every read');
+done('D70 the cache TTL slid on every read');

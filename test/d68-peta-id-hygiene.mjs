@@ -1,4 +1,4 @@
-// d56 — five low-severity defects in `lib/peta.js`, all measured 24 Nov 2026 on
+// d68 — five low-severity defects in `lib/peta.js`, all measured 24 Nov 2026 on
 // 0.7.0 (HEAD ba4b580):
 //
 //   L1  `shortId('   ')` returned `'   '` — truthy, so a whitespace id became a
@@ -95,4 +95,4 @@ const W = (id, refs = [], extra = {}) => ({
   check('findBridges breaks ties by code point', ids.join(' ') === 'X1 x1', ids.join(' '));
 }
 
-done('D56 peta id hygiene and sort order');
+done('D68 peta id hygiene and sort order');

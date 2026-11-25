@@ -1,4 +1,4 @@
-// test/d55-cache-keyed-source-list.mjs — D55 (audit M5): `KEYED_SOURCE_IDS`
+// test/d76-cache-keyed-source-list.mjs — D76 (audit M5): `KEYED_SOURCE_IDS`
 // was dead code, and the comment claimed a wiring that did not exist.
 //
 // THE DEFECT. `lib/cache.js` exported `KEYED_SOURCE_IDS` (8 ids) and its
@@ -31,7 +31,7 @@ const { check, done } = reporter();
 // fail on its ASSERTIONS, not on a module SyntaxError.
 const KEYED_SOURCE_IDS = cacheModule.KEYED_SOURCE_IDS ?? new Set();
 
-const root = join(tmpdir(), `dsh-d55-${process.pid}`);
+const root = join(tmpdir(), `dsh-d86-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -125,4 +125,4 @@ async function search({ file, source, config = {} }) {
 check('the set is restored for the rest of the suite', KEYED_SOURCE_IDS.has('semantic') && KEYED_SOURCE_IDS.has('openalex'));
 
 rmSync(root, { recursive: true, force: true });
-done('D55 KEYED_SOURCE_IDS was dead code');
+done('D76 KEYED_SOURCE_IDS was dead code');

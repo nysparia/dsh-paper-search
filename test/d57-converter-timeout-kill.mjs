@@ -1,4 +1,4 @@
-// test/d57-converter-timeout-kill.mjs — D57 (audit M5): the timeout sent
+// test/d57-converter-timeout-kill.mjs — D69 (audit M5): the timeout sent
 // SIGTERM and resolved immediately, so a child that ignored it kept running and
 // wrote a complete `.md` AFTER the failure was reported.
 //
@@ -36,7 +36,7 @@ import { reporter, fakePdf } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d57-${process.pid}`);
+const root = join(tmpdir(), `dsh-d69-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 

@@ -1,4 +1,4 @@
-// d60 — an OPTIONAL numeric argument that was not sent must not become a value.
+// d79 — an OPTIONAL numeric argument that was not sent must not become a value.
 //
 // THE DEFECT. Every numeric parameter in `lib/index.js` parsed itself, and each
 // one got a different subset of three cases right. Measured 24 Nov 2026 on 0.7.0
@@ -151,4 +151,4 @@ function crossref() {
     r.split('\n').find((l) => /abstract_chars/.test(l)) ?? 'SILENT');
 }
 
-done('D60 optional numeric arguments');
+done('D79 optional numeric arguments');

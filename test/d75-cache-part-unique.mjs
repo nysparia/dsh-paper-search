@@ -1,4 +1,4 @@
-// test/d54-cache-part-unique.mjs — D54 (audit M4 + L1): the fixed `.part` name
+// test/d75-cache-part-unique.mjs — D75 (audit M4 + L1): the fixed `.part` name
 // raced across processes, and a failed rename left the temporary behind.
 //
 // THE DEFECT. `write()` used `<file>.part` for every writer, so two processes
@@ -31,7 +31,7 @@ import { reporter } from './harness.mjs';
 const { check, done } = reporter();
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = join(tmpdir(), `dsh-d54-${process.pid}`);
+const root = join(tmpdir(), `dsh-d85-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -88,4 +88,4 @@ mkdirSync(root, { recursive: true });
 }
 
 rmSync(root, { recursive: true, force: true });
-done('D54 the fixed .part name raced across processes');
+done('D75 the fixed .part name raced across processes');

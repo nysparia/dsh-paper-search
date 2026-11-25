@@ -1,4 +1,4 @@
-// d52 — the SEED was counted as a candidate against itself.
+// d64 — the SEED was counted as a candidate against itself.
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580), with a seed whose
 // `referenced_works` contains its own id and `direction: 'references'` (where the
@@ -90,4 +90,4 @@ check('the seed\'s own id is named as excluded from its reference list',
 check('the seed is not listed as a shared foundation of itself', !/citations · W9000/.test(r),
   r.split('\n').find((l) => /citations · W9000/.test(l)));
 
-done('D52 the seed is not a candidate');
+done('D64 the seed is not a candidate');

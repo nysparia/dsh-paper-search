@@ -1,4 +1,4 @@
-// d65 — `paper_citations` must state what it cost.
+// d84 — `paper_citations` must state what it cost.
 //
 // THE DEFECT. `paper_detail` prints "N OpenAlex requests" and `paper_search`
 // prints a per-source line with a timing, but `paper_citations` printed no
@@ -87,4 +87,4 @@ function claimed(reply) {
     r.split('\n').find((l) => /records/.test(l)) ?? 'SILENT');
 }
 
-done('D65 paper_citations states its cost');
+done('D84 paper_citations states its cost');

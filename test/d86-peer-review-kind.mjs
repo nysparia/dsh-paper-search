@@ -1,4 +1,4 @@
-// d67 — a PEER-REVIEW REPORT is not a REVIEW ARTICLE.
+// d86 — a PEER-REVIEW REPORT is not a REVIEW ARTICLE.
 //
 // THE DEFECT. `canonicalKind` folded each platform's `type` vocabulary onto the
 // three kinds this tool offers, and it tested `t.includes('review')` first. That
@@ -48,4 +48,4 @@ const { check, done } = reporter();
     JSON.stringify(r.dropped));
 }
 
-done('D67 a peer-review report is not a review article');
+done('D86 a peer-review report is not a review article');

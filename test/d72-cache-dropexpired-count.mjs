@@ -1,4 +1,4 @@
-// test/d51-cache-dropexpired-count.mjs — D51 (audit M1): `dropExpired()`
+// test/d72-cache-dropexpired-count.mjs — D72 (audit M1): `dropExpired()`
 // returned the number `prune()` removed for ANY reason, and reported a count
 // even when the write had failed.
 //
@@ -32,7 +32,7 @@ import { reporter } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d51-${process.pid}`);
+const root = join(tmpdir(), `dsh-d82-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -90,4 +90,4 @@ const onDisk = (file) => Object.keys(JSON.parse(readFileSync(file, 'utf8')).entr
 }
 
 rmSync(root, { recursive: true, force: true });
-done('D51 dropExpired counted every prune removal');
+done('D72 dropExpired counted every prune removal');

@@ -1,4 +1,4 @@
-// d49 — a PARTIAL citation sum was reported as the cluster total.
+// d61 — a PARTIAL citation sum was reported as the cluster total.
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580): a 3-work cluster with one
 // `cited_by_count: null` returned `totalCitations: 30`, and the reply printed
@@ -77,4 +77,4 @@ function mapFetch(candidates) {
   check('the cluster line does not present 30 as a bare total', !/total 30 citations$/.test(line), line);
 }
 
-done('D49 cluster citation coverage');
+done('D61 cluster citation coverage');

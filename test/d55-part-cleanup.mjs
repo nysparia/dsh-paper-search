@@ -1,4 +1,4 @@
-// test/d55-part-cleanup.mjs — D55 (audit M3): a failed write or rename left the
+// test/d55-part-cleanup.mjs — D86 (audit M3): a failed write or rename left the
 // `.part` file behind.
 //
 // THE DEFECT. `downloadPdf` wrote `<destination>.part` and renamed it, with no
@@ -28,7 +28,7 @@ import { reporter, fakePdf } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d55-${process.pid}`);
+const root = join(tmpdir(), `dsh-d86-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 

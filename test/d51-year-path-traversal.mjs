@@ -1,4 +1,4 @@
-// test/d51-year-path-traversal.mjs — D51 (audit H3): `publication_year` was
+// test/d51-year-path-traversal.mjs — D82 (audit H3): `publication_year` was
 // interpolated raw into the file name, so a third-party reply chose where this
 // plugin wrote.
 //
@@ -67,7 +67,7 @@ check('a year with surrounding whitespace is still that year',
   fileSlug({ title: 'A paper', publication_year: ' 2020\n' }));
 
 // ── 2. End to end: nothing may be written outside the library folder ───────
-const root = join(tmpdir(), `dsh-d51-${process.pid}`);
+const root = join(tmpdir(), `dsh-d82-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(join(root, 'md'), { recursive: true });
 // `../../OUTSIDE` is the shortest traversal that escapes `<root>/md/`: with the

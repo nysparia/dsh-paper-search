@@ -1,4 +1,4 @@
-// test/d53-cache-entries-array.mjs — D53 (audit M3): `read()` accepted
+// test/d74-cache-entries-array.mjs — D74 (audit M3): `read()` accepted
 // `entries: []` as a healthy cache, so `set()` reported success and the entry
 // was silently lost.
 //
@@ -29,7 +29,7 @@ import { reporter } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d53-${process.pid}`);
+const root = join(tmpdir(), `dsh-d84-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -61,4 +61,4 @@ mkdirSync(root, { recursive: true });
 }
 
 rmSync(root, { recursive: true, force: true });
-done('D53 read() accepted entries: []');
+done('D74 read() accepted entries: []');

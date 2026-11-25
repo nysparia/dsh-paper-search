@@ -1,4 +1,4 @@
-// test/d52-cache-limits-clamped.mjs — D52 (audit M2): `maxEntries <= 0` broke
+// test/d73-cache-limits-clamped.mjs — D73 (audit M2): `maxEntries <= 0` broke
 // `set()`.
 //
 // THE DEFECT. `prune()` ran `keys.reduce(...)` with no initial value once the
@@ -28,7 +28,7 @@ import { reporter } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d52-${process.pid}`);
+const root = join(tmpdir(), `dsh-d83-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -82,4 +82,4 @@ const trySet = (cache, key, value) => {
 }
 
 rmSync(root, { recursive: true, force: true });
-done('D52 maxEntries <= 0 broke set()');
+done('D73 maxEntries <= 0 broke set()');

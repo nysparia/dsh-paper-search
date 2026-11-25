@@ -1,4 +1,4 @@
-// test/d53-download-size-cap.mjs — D53 (audit M1): `downloadPdf` had no size cap.
+// test/d53-download-size-cap.mjs — D84 (audit M1): `downloadPdf` had no size cap.
 //
 // THE DEFECT. The whole reply was buffered and then written:
 //
@@ -24,7 +24,7 @@ import { reporter, fakePdf } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d53-${process.pid}`);
+const root = join(tmpdir(), `dsh-d84-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 

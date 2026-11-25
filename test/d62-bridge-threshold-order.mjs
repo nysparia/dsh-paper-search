@@ -1,4 +1,4 @@
-// d50 — the strict and loose clustering levels could invert, and the caller
+// d62 — the strict and loose clustering levels could invert, and the caller
 // accepted thresholds that cannot mean anything.
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580), on two tight groups plus one work
@@ -126,4 +126,4 @@ async function run(args) {
     r.split('\n').find((l) => /loose level was lowered/.test(l)));
 }
 
-done('D50 bridge threshold ordering');
+done('D62 bridge threshold ordering');

@@ -1,4 +1,4 @@
-// d57 — `suspicious` could never fire on a TRUNCATED reference list.
+// d69 — `suspicious` could never fire on a TRUNCATED reference list.
 //
 // Measured 24 Nov 2026 on 0.7.0 (HEAD ba4b580): a container record with 400 real
 // references came back from OpenAlex with 100, so `refs` was 100, `100 <= 300`,
@@ -83,4 +83,4 @@ check('…and summarises it separately from the long-list warning',
   /1 of them have a TRUNCATED reference list/.test(r),
   r.split('\n').find((l) => /TRUNCATED reference list/.test(l)));
 
-done('D57 truncated reference list');
+done('D69 truncated reference list');

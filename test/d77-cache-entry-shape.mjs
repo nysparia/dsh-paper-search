@@ -1,4 +1,4 @@
-// test/d56-cache-entry-shape.mjs — D56 (audit L2 + L3): `get()` served a null
+// test/d77-cache-entry-shape.mjs — D77 (audit L2 + L3): `get()` served a null
 // value as a HIT, and `status()` disagreed with `get()` about a numeric-string
 // timestamp.
 //
@@ -30,7 +30,7 @@ import { reporter } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d56-${process.pid}`);
+const root = join(tmpdir(), `dsh-d68-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
@@ -90,4 +90,4 @@ const withEntry = (name, entry) => {
 }
 
 rmSync(root, { recursive: true, force: true });
-done('D56 a null value was a HIT and status()/get() disagreed');
+done('D77 a null value was a HIT and status()/get() disagreed');

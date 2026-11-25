@@ -1,4 +1,4 @@
-// test/d56-converter-fallback.mjs — D56 (audit M4): `findConverter` checked that
+// test/d56-converter-fallback.mjs — D68 (audit M4): `findConverter` checked that
 // a path EXISTS, not that it runs, and there was no fallback.
 //
 // THE DEFECT. `for (const c of list) if (existsSync(c.path)) return c;` — that
@@ -33,7 +33,7 @@ import { installFetch, reporter, fakePdf } from './harness.mjs';
 const { check, done } = reporter();
 const here = dirname(fileURLToPath(import.meta.url));
 
-const root = join(tmpdir(), `dsh-d56-${process.pid}`);
+const root = join(tmpdir(), `dsh-d68-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 

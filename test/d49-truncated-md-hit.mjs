@@ -1,4 +1,4 @@
-// test/d49-truncated-md-hit.mjs — D49 (audit H1): a truncated or whitespace-only
+// test/d49-truncated-md-hit.mjs — D80 (audit H1): a truncated or whitespace-only
 // `.md` was served as a VERIFIED cache hit.
 //
 // THE DEFECT. The cache-hit test was `statSync(md).size > 0`. The Markdown itself
@@ -61,7 +61,7 @@ function servePdf() {
 
 /** A fresh library folder with one hand-written `.md` and a valid PDF beside it. */
 function fixture(label, mdContent) {
-  const root = join(tmpdir(), `dsh-d49-${label}-${process.pid}`);
+  const root = join(tmpdir(), `dsh-d80-${label}-${process.pid}`);
   rmSync(root, { recursive: true, force: true });
   mkdirSync(join(root, 'md'), { recursive: true });
   const slug = fileSlug({ doi: DOI });
@@ -113,7 +113,7 @@ for (const [label, content] of [['one-byte', '\n'], ['whitespace', '   \n\n']]) 
 // present: a `.md` truncated AFTER a successful conversion, and a `.md` edited
 // in place (same size, different bytes), are both unverifiable.
 {
-  const root = join(tmpdir(), `dsh-d49-marker-${process.pid}`);
+  const root = join(tmpdir(), `dsh-d80-marker-${process.pid}`);
   rmSync(root, { recursive: true, force: true });
   mkdirSync(join(root, 'md'), { recursive: true });
   const mock = servePdf();
@@ -150,7 +150,7 @@ for (const [label, content] of [['one-byte', '\n'], ['whitespace', '   \n\n']]) 
 
 // ── 4. The cheap path survives: a real conversion is still a hit ───────────
 {
-  const root = join(tmpdir(), `dsh-d49-hit-${process.pid}`);
+  const root = join(tmpdir(), `dsh-d80-hit-${process.pid}`);
   rmSync(root, { recursive: true, force: true });
   mkdirSync(join(root, 'md'), { recursive: true });
   const mock = servePdf();
@@ -166,7 +166,7 @@ for (const [label, content] of [['one-byte', '\n'], ['whitespace', '   \n\n']]) 
 
 // ── 5. The converter itself must not accept whitespace as a conversion ─────
 {
-  const root = join(tmpdir(), `dsh-d49-conv-${process.pid}`);
+  const root = join(tmpdir(), `dsh-d80-conv-${process.pid}`);
   rmSync(root, { recursive: true, force: true });
   mkdirSync(root, { recursive: true });
   const pdf = join(root, 'paper.pdf');
@@ -187,7 +187,7 @@ for (const [label, content] of [['one-byte', '\n'], ['whitespace', '   \n\n']]) 
 
 // ── 6. Through the registered tool: the reply must not claim a conversion ──
 {
-  const root = join(tmpdir(), `dsh-d49-tool-${process.pid}`);
+  const root = join(tmpdir(), `dsh-d80-tool-${process.pid}`);
   rmSync(root, { recursive: true, force: true });
   mkdirSync(join(root, 'md'), { recursive: true });
   writeFileSync(join(root, 'md', `${fileSlug({ doi: DOI })}.md`), TRUNCATED);

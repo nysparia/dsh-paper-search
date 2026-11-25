@@ -1,4 +1,4 @@
-// d62 — `paper_status` must not report on FEWER sources than a bare call.
+// d81 — `paper_status` must not report on FEWER sources than a bare call.
 //
 // THE DEFECT. `selectSources` maps the group keyword "all" to `DEFAULT_IDS`,
 // which is right for `paper_search` — a bare search must not pay for `pmc` and
@@ -115,7 +115,7 @@ h.restore();
   const { rmSync } = await import('node:fs');
   const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
-  const file = join(tmpdir(), `dsh-d62-cache-${process.pid}.json`);
+  const file = join(tmpdir(), `dsh-d81-cache-${process.pid}.json`);
   rmSync(file, { force: true });
   const hc = installFetch(() => ({ body: { message: { items: [
     { DOI: '10.1234/a', title: ['A'], issued: { 'date-parts': [[2020]] }, 'is-referenced-by-count': 3 },
@@ -128,4 +128,4 @@ h.restore();
   check('a cached source says "cached", not "0 ms"', /\(cached\)/.test(line ?? ''), line ?? 'no OK line');
 }
 
-done('D62 paper_status source selection');
+done('D81 paper_status source selection');

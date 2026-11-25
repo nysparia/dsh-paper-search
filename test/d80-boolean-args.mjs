@@ -1,4 +1,4 @@
-// d61 — a BOOLEAN argument that is not a boolean must not be a silent no-op.
+// d80 — a BOOLEAN argument that is not a boolean must not be a silent no-op.
 //
 // THE DEFECT. Five boolean parameters were read five different ways, and only
 // ONE of them accepted the string spelling. Measured 24 Nov 2026 on 0.7.0
@@ -134,4 +134,4 @@ function crossref() {
     /search cache/.test(r), r.split('\n').find((l) => /cache/i.test(l)) ?? 'SILENT');
 }
 
-done('D61 boolean arguments');
+done('D80 boolean arguments');

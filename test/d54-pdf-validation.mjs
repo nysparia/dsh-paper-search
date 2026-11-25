@@ -1,4 +1,4 @@
-// test/d54-pdf-validation.mjs — D54 (audit M2, L5, L6): "valid PDF" meant "five
+// test/d54-pdf-validation.mjs — D85 (audit M2, L5, L6): "valid PDF" meant "five
 // ASCII bytes".
 //
 // THE DEFECTS, all measured 24 Nov 2026.
@@ -25,7 +25,7 @@ import { reporter, fakePdf } from './harness.mjs';
 
 const { check, done } = reporter();
 
-const root = join(tmpdir(), `dsh-d54-${process.pid}`);
+const root = join(tmpdir(), `dsh-d85-${process.pid}`);
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 
