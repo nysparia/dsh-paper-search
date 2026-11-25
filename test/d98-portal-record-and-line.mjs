@@ -73,7 +73,11 @@ function serve(html) {
   const h = await searchSource('garuda', 'pendidikan', { rows: 5 });
   check('garuda: journal is NOT the source label', h.papers[0]?.journal === null,
     JSON.stringify(h.papers[0]?.journal));
-  check('garuda: open access is not asserted', h.papers[0]?.openAccess === false,
+  // `null`, not `false`: `makePaper` now carries `true|false|null` so that "the
+  // portal did not say" is distinguishable from "the portal said no" — the same
+  // three-valued rule `summarizeOA` uses. The assertion's MEANING is unchanged:
+  // the portal does not assert open access.
+  check('garuda: open access is not asserted', h.papers[0]?.openAccess === null,
     JSON.stringify(h.papers[0]?.openAccess));
 }
 
@@ -82,7 +86,7 @@ function serve(html) {
   const h = await searchSource('sinta', 'pendidikan', { rows: 5 });
   check('sinta: journal is NOT the source label', h.papers[0]?.journal === null,
     JSON.stringify(h.papers[0]?.journal));
-  check('sinta: open access is not asserted', h.papers[0]?.openAccess === false,
+  check('sinta: open access is not asserted', h.papers[0]?.openAccess === null,
     JSON.stringify(h.papers[0]?.openAccess));
 }
 
@@ -91,7 +95,7 @@ function serve(html) {
   const h = await searchSource('ios', 'pendidikan', { rows: 5 });
   check('ios: journal is NOT the source label', h.papers[0]?.journal === null,
     JSON.stringify(h.papers[0]?.journal));
-  check('ios: open access is not asserted', h.papers[0]?.openAccess === false,
+  check('ios: open access is not asserted', h.papers[0]?.openAccess === null,
     JSON.stringify(h.papers[0]?.openAccess));
 }
 
