@@ -1,4 +1,4 @@
-// test/d93-semantic-open-access.mjs — `semantic` claimed open access for a
+// test/d110-semantic-open-access.mjs — `semantic` claimed open access for a
 // paper Semantic Scholar marks CLOSED.
 //
 // THE DEFECT. `openAccess: !!d.openAccessPdf`. Semantic Scholar returns

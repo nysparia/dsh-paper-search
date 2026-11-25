@@ -1,4 +1,4 @@
-// test/d98-author-truncation.mjs — author lists were cut to 15 with nothing
+// test/d115-author-truncation.mjs — author lists were cut to 15 with nothing
 // saying so.
 //
 // THE DEFECT. `makePaper` did `authorList(p.authors).slice(0, 15)`. Measured

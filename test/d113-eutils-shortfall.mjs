@@ -1,4 +1,4 @@
-// test/d96-eutils-shortfall.mjs — `pubmed` and `pmc` silently dropped ids that
+// test/d113-eutils-shortfall.mjs — `pubmed` and `pmc` silently dropped ids that
 // `esummary` did not return.
 //
 // THE DEFECT. `if (!r) return null` plus `.filter((p) => p && p.title)` removed

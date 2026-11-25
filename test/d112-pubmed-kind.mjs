@@ -1,4 +1,4 @@
-// test/d95-pubmed-kind.mjs — `pubmed`, `pmc` and `europepmc` never mapped the
+// test/d112-pubmed-kind.mjs — `pubmed`, `pmc` and `europepmc` never mapped the
 // work type, so `kind` kept everything and the reply misstated the platform.
 //
 // THE DEFECT. None of the three connectors passed a `type` to `makePaper`, so
@@ -172,4 +172,4 @@ const PREPRINT = {
 }
 
 globalThis.fetch = realFetch;
-done('D95 pubmed kind');
+done('D112 pubmed kind');

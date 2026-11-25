@@ -1,4 +1,4 @@
-// test/d94-eutils-error-body.mjs — `pubmed` and `pmc` turned an HTTP 200 error
+// test/d111-eutils-error-body.mjs — `pubmed` and `pmc` turned an HTTP 200 error
 // body into "0 results".
 //
 // THE DEFECT. E-utilities answers a transient backend failure with status 200

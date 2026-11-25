@@ -1,4 +1,4 @@
-// test/d99-europepmc-author-period.mjs — the last Europe PMC author kept the
+// test/d116-europepmc-author-period.mjs — the last Europe PMC author kept the
 // sentence-final period.
 //
 // THE DEFECT. Europe PMC terminates `authorString` with a period, so the LAST

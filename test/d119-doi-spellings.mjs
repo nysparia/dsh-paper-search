@@ -1,4 +1,4 @@
-// test/d102-doi-spellings.mjs — five spellings of one DOI did not normalize
+// test/d119-doi-spellings.mjs — five spellings of one DOI did not normalize
 // together, so one paper became two records after `dedup`.
 //
 // THE DEFECT. Measured 25 Nov 2026 on the baseline:
@@ -94,4 +94,4 @@ check('isDoi accepts the trailing-slash form', isDoi('10.1038/nature14539/'), tr
 check('isDoi accepts the www.doi.org form', isDoi('https://www.doi.org/10.1038/nature14539'), true);
 check('isDoi accepts the Lancet DOI', isDoi(LANCET), true);
 
-done('D102 DOI spellings');
+done('D119 DOI spellings');

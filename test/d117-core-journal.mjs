@@ -1,4 +1,4 @@
-// test/d100-core-journal.mjs — `core` mapped `journal` from `publisher`.
+// test/d117-core-journal.mjs — `core` mapped `journal` from `publisher`.
 //
 // THE DEFECT. `journal: c.publisher` printed a PUBLISHER in the journal slot.
 // Measured 25 Nov 2026 with a canned CORE v3 record whose `publisher` is

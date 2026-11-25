@@ -1,4 +1,4 @@
-// test/d91-semantic-citations.mjs — `semantic` never asked for `citationCount`,
+// test/d108-semantic-citations.mjs — `semantic` never asked for `citationCount`,
 // so `citedBy` was always `null`.
 //
 // THE DEFECT. The `fields` list sent to Semantic Scholar was

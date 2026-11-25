@@ -1,4 +1,4 @@
-// test/d97-worknumber-whitespace.mjs — `workNumber('   ')` returned `0`.
+// test/d114-worknumber-whitespace.mjs — `workNumber('   ')` returned `0`.
 //
 // THE DEFECT. Only `''` was guarded, so a whitespace-only string reached
 // `Number('   ')`, which is **0**, and `Number.isFinite(0)` is true. Measured
@@ -73,4 +73,4 @@ check('a numeric string is carried through', await citedByOf('740'), 740);
 }
 
 globalThis.fetch = realFetch;
-done('D97 workNumber whitespace');
+done('D114 workNumber whitespace');

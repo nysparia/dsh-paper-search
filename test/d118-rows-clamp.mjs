@@ -1,4 +1,4 @@
-// test/d101-rows-clamp.mjs — `rows` was forwarded verbatim, so `rows: 0` became
+// test/d118-rows-clamp.mjs — `rows` was forwarded verbatim, so `rows: 0` became
 // "0 results" and DOAJ's silent clamp was invisible.
 //
 // THE DEFECT. `rows: 0` went straight into the request. Measured live
